@@ -1,0 +1,44 @@
+server:
+  port: 8085
+spring:
+  application:
+    name: campus-payment-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:124.220.155.27:8848}
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:124.220.155.27}:3306/campushub_payment?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:124.220.155.27}
+      port: 6379
+      password: ${REDIS_PASSWORD:}
+      database: 1
+  rabbitmq:
+    host: ${RABBITMQ_HOST:124.220.155.27}
+    port: 5672
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+mybatis-plus:
+  global-config:
+    db-config:
+      id-type: assign_id
+      update-strategy: not_null
+  configuration:
+    map-underscore-to-camel-case: true
+campus:
+  jwt:
+    secret: ${JWT_SECRET:campushub-jwt-secret-placeholder-32bytes-min}
+    ttl: 1800000
+logging:
+  level:
+    com.campushub: debug
+
+
+
+
+

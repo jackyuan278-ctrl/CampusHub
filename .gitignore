@@ -1,0 +1,22 @@
+# Java/Maven
+.m2/
+**/target/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Local secrets and machine-specific profiles
+**/application-dev.yml
+.env
+.env.*
+!.env.example
+
+# Frontend
+frontend/**/node_modules/
+frontend/**/dist/
+
+# Local environment configuration
+config/
+

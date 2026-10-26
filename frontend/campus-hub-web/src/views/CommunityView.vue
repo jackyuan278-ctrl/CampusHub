@@ -1,2 +1,17 @@
-<template><section class="page-heading"><div><p class="eyebrow">COMMUNITY</p><h1>问答社区</h1><p>在这里提问、分享经验，和同学一起解决问题。</p></div><el-button type="primary" round>我要提问</el-button></section><div class="question-list"><article v-for="q in questions" :key="q.title" class="question-card"><div class="avatar">{{q.author[0]}}</div><div><div class="question-meta">{{q.author}} · {{q.time}}</div><h3>{{q.title}}</h3><p>{{q.desc}}</p><div class="question-stats"><span>💬 {{q.answers}} 个回答</span><span>♥ {{q.likes}} 人赞同</span></div></div></article></div></template>
-<script setup>const questions=[{author:'小林同学',time:'刚刚',title:'学校附近有哪些适合周末去的地方？',desc:'想和朋友在学校周边逛逛，欢迎大家分享自己的宝藏地点。',answers:8,likes:24},{author:'周周',time:'1小时前',title:'求推荐一款适合宿舍使用的打印机',desc:'主要打印课程资料，希望体积不要太大，耗材也方便购买。',answers:5,likes:16},{author:'阿南',time:'昨天',title:'活动报名后临时有事不能参加怎么办？',desc:'已经报名了本周的活动，想了解一下取消报名的流程。',answers:3,likes:9}]</script>
+<template>
+  <div class="page-container">
+    <SectionHeading eyebrow="COMMUNITY" title="问答社区" description="遇到问题就来问问，校园经验在这里流动起来。"><template #actions><el-button type="primary" round @click="askQuestion"><el-icon><EditPen /></el-icon>我要提问</el-button></template></SectionHeading>
+    <section class="community-toolbar"><div class="community-tabs"><button v-for="tab in tabs" :key="tab.key" :class="{ active: activeTab === tab.key }" @click="activeTab = tab.key">{{ tab.label }}</button></div><div class="community-search"><el-icon><Search /></el-icon><input v-model="keyword" placeholder="搜索问题或话题" /></div></section>
+    <div class="community-layout"><div class="question-list"><QuestionCard v-for="question in visibleQuestions" :key="question.id" :question="question" /></div><aside class="community-aside"><div class="aside-card topic-card"><span class="aside-kicker">HOT TOPICS</span><h3>大家最近在聊</h3><button v-for="topic in topics" :key="topic.name" @click="keyword = topic.name"># {{ topic.name }}<span>{{ topic.count }}</span></button></div><div class="aside-card join-card"><span class="join-icon"><el-icon><ChatDotRound /></el-icon></span><h3>分享你的校园经验</h3><p>一个回答，也许能帮到正在找答案的同学。</p><el-button round @click="askQuestion">去提问</el-button></div></aside></div>
+  </div>
+</template>
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import { campusHubApi } from '@/api/campusHubApi'
+import SectionHeading from '@/components/SectionHeading.vue'; import QuestionCard from '@/components/QuestionCard.vue'
+const questions = ref([]); const activeTab = ref('latest'); const keyword = ref(''); const tabs = [{ key: 'latest', label: '最新' }, { key: 'hot', label: '最热' }]; const topics = [{ name: '校园周边', count: 28 }, { name: '宿舍生活', count: 21 }, { name: '课程学习', count: 17 }, { name: '活动报名', count: 12 }]
+const visibleQuestions = computed(() => { let result = [...questions.value]; if (keyword.value) result = result.filter((q) => `${q.title}${q.desc}${q.tags.join('')}`.includes(keyword.value)); if (activeTab.value === 'hot') result.sort((a, b) => b.likes - a.likes); return result })
+onMounted(async () => { questions.value = await campusHubApi.listQuestions() })
+function askQuestion() { ElMessage.info('提问编辑器已预留，接入 campus-community-service 后即可发布') }
+</script>

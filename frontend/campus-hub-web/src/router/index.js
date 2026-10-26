@@ -8,13 +8,14 @@ import LoginView from '@/views/LoginView.vue'
 
 export default createRouter({
   history: createWebHistory(),
+  scrollBehavior: () => ({ top: 0 }),
   routes: [
     { path: '/', redirect: '/home' },
-    { path: '/home', component: HomeView },
-    { path: '/secondhand', component: SecondhandView },
-    { path: '/activities', component: ActivitiesView },
-    { path: '/community', component: CommunityView },
-    { path: '/cart', component: CartView },
-    { path: '/login', component: LoginView, meta: { bare: true } }
+    { path: '/home', name: 'home', component: HomeView },
+    { path: '/secondhand', name: 'secondhand', component: SecondhandView },
+    { path: '/activities', name: 'activities', component: ActivitiesView },
+    { path: '/community', name: 'community', component: CommunityView },
+    { path: '/cart', name: 'cart', component: CartView },
+    { path: '/login', name: 'login', component: LoginView, meta: { bare: true } }
   ]
 })

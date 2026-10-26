@@ -1,0 +1,75 @@
+server:
+  port: 8080
+spring:
+  main:
+    web-application-type: reactive
+  application:
+    name: campus-gateway
+  # 网关无数据库，排除 zg-common 传递引入的 JDBC 自动配置
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:124.220.155.27:8848}
+    gateway:
+      routes:
+        - id: user-service
+          uri: lb://campus-user-service
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - StripPrefix=1
+        - id: item-service
+          uri: lb://campus-secondhand-service
+          predicates:
+            - Path=/api/items/**
+          filters:
+            - StripPrefix=1
+        - id: cart-service
+          uri: lb://campus-cart-service
+          predicates:
+            - Path=/api/cart/**
+          filters:
+            - StripPrefix=1
+        - id: trade-service
+          uri: lb://campus-order-service
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - StripPrefix=1
+        - id: activity-service
+          uri: lb://campus-activity-service
+          predicates:
+            - Path=/api/activities/**
+          filters:
+            - StripPrefix=1
+        - id: community-service
+          uri: lb://campus-community-service
+          predicates:
+            - Path=/api/community/**
+          filters:
+            - StripPrefix=1
+        - id: pay-service
+          uri: lb://campus-payment-service
+          predicates:
+            - Path=/api/pay/**
+          filters:
+            - StripPrefix=1
+campus:
+  jwt:
+    secret: ${JWT_SECRET:campushub-jwt-secret-placeholder-32bytes-min}
+    ttl: 1800000
+logging:
+  level:
+    com.campushub: debug
+
+
+
+
+
+
+
+
+

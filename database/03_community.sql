@@ -1,32 +1,86 @@
+-- CampusHub 社区服务数据库
+-- 服务归属：campus-community-service；user_id 仅保存用户业务ID。
 USE campushub_community;
+
 CREATE TABLE IF NOT EXISTS tb_question (
- id BIGINT NOT NULL, user_id BIGINT NOT NULL, title VARCHAR(128) NOT NULL, content TEXT NOT NULL,
- view_count INT NOT NULL DEFAULT 0, like_count INT NOT NULL DEFAULT 0, answer_count INT NOT NULL DEFAULT 0, comment_count INT NOT NULL DEFAULT 0,
- status TINYINT NOT NULL DEFAULT 1, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- PRIMARY KEY(id), KEY idx_user_id(user_id), KEY idx_create_time(create_time)
-) ENGINE=InnoDB COMMENT='问题';
+    id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    title VARCHAR(128) NOT NULL,
+    content TEXT NOT NULL,
+    view_count INT NOT NULL DEFAULT 0,
+    like_count INT NOT NULL DEFAULT 0,
+    answer_count INT NOT NULL DEFAULT 0,
+    comment_count INT NOT NULL DEFAULT 0,
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '1正常 0隐藏',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_user_id (user_id),
+    KEY idx_status_create_time (status, create_time)
+) ENGINE=InnoDB COMMENT='问答问题';
+
 CREATE TABLE IF NOT EXISTS tb_tag (
- id BIGINT NOT NULL, name VARCHAR(32) NOT NULL, question_count INT NOT NULL DEFAULT 0, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
- PRIMARY KEY(id), UNIQUE KEY uk_name(name)
-) ENGINE=InnoDB COMMENT='标签';
+    id BIGINT NOT NULL,
+    name VARCHAR(32) NOT NULL,
+    question_count INT NOT NULL DEFAULT 0,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_name (name)
+) ENGINE=InnoDB COMMENT='问答标签';
+
 CREATE TABLE IF NOT EXISTS tb_question_tag (
- id BIGINT NOT NULL, question_id BIGINT NOT NULL, tag_id BIGINT NOT NULL, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
- PRIMARY KEY(id), UNIQUE KEY uk_question_tag(question_id,tag_id), KEY idx_tag_id(tag_id)
+    id BIGINT NOT NULL,
+    question_id BIGINT NOT NULL,
+    tag_id BIGINT NOT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_question_tag (question_id, tag_id),
+    KEY idx_tag_id (tag_id)
 ) ENGINE=InnoDB COMMENT='问题标签关联';
+
 CREATE TABLE IF NOT EXISTS tb_answer (
- id BIGINT NOT NULL, question_id BIGINT NOT NULL, user_id BIGINT NOT NULL, content TEXT NOT NULL, like_count INT NOT NULL DEFAULT 0, comment_count INT NOT NULL DEFAULT 0,
- status TINYINT NOT NULL DEFAULT 1, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- PRIMARY KEY(id), KEY idx_question_id(question_id), KEY idx_user_id(user_id)
-) ENGINE=InnoDB COMMENT='回答';
+    id BIGINT NOT NULL,
+    question_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    content TEXT NOT NULL,
+    like_count INT NOT NULL DEFAULT 0,
+    comment_count INT NOT NULL DEFAULT 0,
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '1正常 0隐藏',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_question_id (question_id),
+    KEY idx_user_id (user_id)
+) ENGINE=InnoDB COMMENT='问题回答';
+
 CREATE TABLE IF NOT EXISTS tb_comment (
- id BIGINT NOT NULL, answer_id BIGINT NOT NULL, user_id BIGINT NOT NULL, content VARCHAR(500) NOT NULL, status TINYINT NOT NULL DEFAULT 1, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
- PRIMARY KEY(id), KEY idx_answer_id(answer_id)
+    id BIGINT NOT NULL,
+    answer_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    content VARCHAR(500) NOT NULL,
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '1正常 0隐藏',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_answer_id (answer_id),
+    KEY idx_user_id (user_id)
 ) ENGINE=InnoDB COMMENT='回答评论';
+
 CREATE TABLE IF NOT EXISTS tb_like (
- id BIGINT NOT NULL, user_id BIGINT NOT NULL, target_id BIGINT NOT NULL, target_type TINYINT NOT NULL COMMENT '1问题 2回答', create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
- PRIMARY KEY(id), UNIQUE KEY uk_user_target(user_id,target_id,target_type)
-) ENGINE=InnoDB COMMENT='问题/回答点赞';
+    id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    target_id BIGINT NOT NULL,
+    target_type TINYINT NOT NULL COMMENT '1问题 2回答',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_user_target (user_id, target_id, target_type)
+) ENGINE=InnoDB COMMENT='问题或回答点赞';
+
 CREATE TABLE IF NOT EXISTS tb_follow (
- id BIGINT NOT NULL, user_id BIGINT NOT NULL, follow_user_id BIGINT NOT NULL, create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
- PRIMARY KEY(id), UNIQUE KEY uk_follow(user_id,follow_user_id)
+    id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    follow_user_id BIGINT NOT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_follow (user_id, follow_user_id),
+    KEY idx_follow_user_id (follow_user_id)
 ) ENGINE=InnoDB COMMENT='用户关注';

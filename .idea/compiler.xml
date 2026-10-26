@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile default="true" name="Default" enabled="true" />
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="campus-secondhand-service" />
+        <module name="campus-user-service" />
+        <module name="campus-activity-service" />
+        <module name="campus-common" />
+        <module name="campus-payment-service" />
+        <module name="campus-api" />
+        <module name="campus-cart-service" />
+        <module name="campus-community-service" />
+        <module name="campus-gateway" />
+        <module name="campus-order-service" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="campus-life" target="17" />
+      <module name="zg-api" target="1.5" />
+      <module name="zg-cart" target="1.5" />
+      <module name="zg-common" target="1.5" />
+      <module name="zg-gateway" target="1.5" />
+      <module name="zg-item" target="1.5" />
+      <module name="zg-pay" target="1.5" />
+      <module name="zg-trade" target="1.5" />
+      <module name="zg-user" target="1.5" />
+    </bytecodeTargetLevel>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="campus-activity-service" options="-parameters" />
+      <module name="campus-api" options="-parameters" />
+      <module name="campus-cart-service" options="-parameters" />
+      <module name="campus-common" options="-parameters" />
+      <module name="campus-community-service" options="-parameters" />
+      <module name="campus-gateway" options="-parameters" />
+      <module name="campus-life" options="-parameters" />
+      <module name="campus-order-service" options="-parameters" />
+      <module name="campus-payment-service" options="-parameters" />
+      <module name="campus-secondhand-service" options="-parameters" />
+      <module name="campus-user-service" options="-parameters" />
+      <module name="campushub-backend" options="-parameters" />
+    </option>
+  </component>
+</project>

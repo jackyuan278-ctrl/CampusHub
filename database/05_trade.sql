@@ -1,16 +1,2 @@
-USE campushub_trade;
-CREATE TABLE IF NOT EXISTS tb_cart (
- id BIGINT NOT NULL, user_id BIGINT NOT NULL, item_id BIGINT NOT NULL, num INT NOT NULL DEFAULT 1, selected TINYINT NOT NULL DEFAULT 1,
- create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- PRIMARY KEY(id), UNIQUE KEY uk_user_item(user_id,item_id), KEY idx_user_id(user_id)
-) ENGINE=InnoDB COMMENT='二手交易购物车';
-CREATE TABLE IF NOT EXISTS tb_order (
- id BIGINT NOT NULL, user_id BIGINT NOT NULL, total_fee INT NOT NULL, payment_type TINYINT NOT NULL DEFAULT 1,
- status TINYINT NOT NULL DEFAULT 1 COMMENT '1待支付 2已支付 3交易中 4已完成 5已关闭', receiver VARCHAR(50) NOT NULL DEFAULT '', phone VARCHAR(20) NOT NULL DEFAULT '', address VARCHAR(500) NOT NULL DEFAULT '', remark VARCHAR(200),
- create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, pay_time DATETIME NULL, end_time DATETIME NULL, close_time DATETIME NULL, update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- PRIMARY KEY(id), KEY idx_user_id(user_id), KEY idx_status(status), KEY idx_create_time(create_time)
-) ENGINE=InnoDB COMMENT='校园交易订单';
-CREATE TABLE IF NOT EXISTS tb_order_detail (
- id BIGINT NOT NULL, order_id BIGINT NOT NULL, item_id BIGINT NOT NULL, name VARCHAR(255) NOT NULL, price INT NOT NULL, num INT NOT NULL, image VARCHAR(500) NOT NULL DEFAULT '',
- create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(id), KEY idx_order_id(order_id)
-) ENGINE=InnoDB COMMENT='交易订单明细';
+-- 已迁移：订单服务脚本现位于 06_order.sql。
+-- 保留此文件仅作为旧文件名提示，不执行任何 SQL。
