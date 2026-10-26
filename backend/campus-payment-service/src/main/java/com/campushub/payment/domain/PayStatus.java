@@ -1,4 +1,4 @@
-package com.campushub.paymentment.domain;
+package com.campushub.payment.domain;
 
 /** 支付单状态。状态变更通过数据库条件更新完成，避免并发请求重复执行支付。 */
 public final class PayStatus {

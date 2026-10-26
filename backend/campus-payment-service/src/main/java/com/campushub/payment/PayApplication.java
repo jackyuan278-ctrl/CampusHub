@@ -1,4 +1,4 @@
-package com.campushub.paymentment;
+package com.campushub.payment;
 
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
@@ -7,7 +7,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @EnableScheduling
-@MapperScan("com.campushub.paymentment.mapper")
+@MapperScan("com.campushub.payment.mapper")
 @EnableFeignClients(basePackages = "com.campushub.api.client")
 @SpringBootApplication(scanBasePackages = "com.campushub")
 public class PayApplication {

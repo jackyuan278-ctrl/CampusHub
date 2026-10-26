@@ -1,11 +1,11 @@
-package com.campushub.paymentment.service.impl;
+package com.campushub.payment.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.campushub.paymentment.domain.PayStatus;
-import com.campushub.paymentment.domain.po.PayEventOutbox;
-import com.campushub.paymentment.domain.po.PayOrder;
-import com.campushub.paymentment.mapper.PayEventOutboxMapper;
-import com.campushub.paymentment.mapper.PayOrderMapper;
+import com.campushub.payment.domain.PayStatus;
+import com.campushub.payment.domain.po.PayEventOutbox;
+import com.campushub.payment.domain.po.PayOrder;
+import com.campushub.payment.mapper.PayEventOutboxMapper;
+import com.campushub.payment.mapper.PayOrderMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

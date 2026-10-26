@@ -1,4 +1,4 @@
-package com.campushub.paymentment.domain.po;
+package com.campushub.payment.domain.po;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;

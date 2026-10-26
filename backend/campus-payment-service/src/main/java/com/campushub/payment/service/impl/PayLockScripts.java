@@ -1,4 +1,4 @@
-package com.campushub.paymentment.service.impl;
+package com.campushub.payment.service.impl;
 
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 

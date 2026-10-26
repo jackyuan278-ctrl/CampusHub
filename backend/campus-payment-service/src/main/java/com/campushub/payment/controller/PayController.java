@@ -1,8 +1,8 @@
-package com.campushub.paymentment.controller;
+package com.campushub.payment.controller;
 
 import com.campushub.common.Result;
-import com.campushub.paymentment.domain.dto.PayFormDTO;
-import com.campushub.paymentment.service.IPayOrderService;
+import com.campushub.payment.domain.dto.PayFormDTO;
+import com.campushub.payment.service.IPayOrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PathVariable;

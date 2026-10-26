@@ -1,4 +1,4 @@
-package com.campushub.paymentment.service.impl;
+package com.campushub.payment.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.campushub.api.client.TradeClient;
@@ -7,11 +7,11 @@ import com.campushub.api.dto.OrderDTO;
 import com.campushub.common.BizException;
 import com.campushub.common.Result;
 import com.campushub.common.interceptor.UserContext;
-import com.campushub.paymentment.domain.PayStatus;
-import com.campushub.paymentment.domain.dto.PayFormDTO;
-import com.campushub.paymentment.domain.po.PayOrder;
-import com.campushub.paymentment.mapper.PayOrderMapper;
-import com.campushub.paymentment.service.IPayOrderService;
+import com.campushub.payment.domain.PayStatus;
+import com.campushub.payment.domain.dto.PayFormDTO;
+import com.campushub.payment.domain.po.PayOrder;
+import com.campushub.payment.mapper.PayOrderMapper;
+import com.campushub.payment.service.IPayOrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;

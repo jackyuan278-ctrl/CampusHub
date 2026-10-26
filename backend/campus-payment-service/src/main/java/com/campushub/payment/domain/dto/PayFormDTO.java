@@ -1,4 +1,4 @@
-package com.campushub.paymentment.domain.dto;
+package com.campushub.payment.domain.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;

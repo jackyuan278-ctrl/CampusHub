@@ -1,4 +1,4 @@
-package com.campushub.paymentment.enums;
+package com.campushub.payment.enums;
 
 import com.campushub.common.BizException;
 import lombok.Getter;

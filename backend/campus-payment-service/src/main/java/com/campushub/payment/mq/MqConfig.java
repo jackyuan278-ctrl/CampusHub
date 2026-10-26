@@ -1,4 +1,4 @@
-package com.campushub.paymentment.mq;
+package com.campushub.payment.mq;
 
 import com.campushub.api.constants.MqConstants;
 import org.springframework.amqp.core.Binding;

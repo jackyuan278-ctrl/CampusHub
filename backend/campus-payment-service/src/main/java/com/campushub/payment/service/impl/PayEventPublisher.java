@@ -1,10 +1,10 @@
-package com.campushub.paymentment.service.impl;
+package com.campushub.payment.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.campushub.api.constants.MqConstants;
-import com.campushub.paymentment.domain.po.PayEventOutbox;
-import com.campushub.paymentment.mapper.PayEventOutboxMapper;
+import com.campushub.payment.domain.po.PayEventOutbox;
+import com.campushub.payment.mapper.PayEventOutboxMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
