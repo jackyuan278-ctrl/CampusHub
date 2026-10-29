@@ -23,6 +23,11 @@ campus:
   jwt:
     secret: ${JWT_SECRET:campushub-jwt-secret-placeholder-32bytes-min}
     ttl: 1800000
+  internal:
+    # 服务间共享密钥，生产必须用环境变量覆盖（与 JWT_SECRET 同源治理）
+    token: ${INTERNAL_TOKEN:dev-internal-token}
+    # 本服务对外提供的内部接口，只有带密钥的调用方放行
+    protected-paths: /users/*/balance/deduct
 logging:
   level:
     com.campushub: debug

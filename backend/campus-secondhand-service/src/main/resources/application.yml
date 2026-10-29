@@ -29,6 +29,9 @@ campus:
   jwt:
     secret: ${JWT_SECRET:campushub-jwt-secret-placeholder-32bytes-min}
     ttl: 1800000
+  internal:
+    token: ${INTERNAL_TOKEN:dev-internal-token}
+    protected-paths: /items/stock/deduct,/items/stock/restore
 logging:
   level:
     com.campushub: debug
