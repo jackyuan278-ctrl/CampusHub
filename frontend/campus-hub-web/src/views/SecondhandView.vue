@@ -6,11 +6,9 @@
         <h1>校园二手交易</h1>
         <p>让闲置物品在校园里流动起来。</p>
       </div>
-      <el-tooltip content="后端暂未开放商品发布接口" placement="bottom-end">
-        <el-button round @click="explainPublish">
-          <el-icon><Plus /></el-icon>发布闲置
-        </el-button>
-      </el-tooltip>
+      <el-button round type="primary" @click="openPublish">
+        <el-icon><Plus /></el-icon>发布闲置
+      </el-button>
     </section>
 
     <div class="market-toolbar">
@@ -64,15 +62,59 @@
       <el-button v-if="hasMore" round :loading="loadingMore" @click="loadMore">加载更多好物</el-button>
       <span v-else>已经到底啦，共 {{ items.length }} 件</span>
     </div>
+
+    <el-dialog v-model="publishVisible" title="发布闲置" width="620px" destroy-on-close>
+      <el-form ref="publishFormRef" :model="form" :rules="rules" label-position="top">
+        <el-form-item label="物品名称" prop="name">
+          <el-input v-model="form.name" maxlength="255" show-word-limit placeholder="比如：罗技 G304 无线鼠标" />
+        </el-form-item>
+        <div class="publish-row">
+          <el-form-item label="价格（元）" prop="price">
+            <el-input-number v-model="form.price" :min="0.01" :max="100000" :precision="2" :step="1" class="full-width" />
+          </el-form-item>
+          <el-form-item label="分类" prop="categoryId">
+            <el-select v-model="form.categoryId" placeholder="选择分类" class="full-width">
+              <el-option v-for="category in categories" :key="category.id" :label="category.name" :value="category.id" />
+            </el-select>
+          </el-form-item>
+        </div>
+        <div class="publish-row">
+          <el-form-item label="成色" prop="conditionDesc">
+            <el-input v-model="form.conditionDesc" maxlength="100" show-word-limit placeholder="比如：9成新，无明显磕碰" />
+          </el-form-item>
+          <el-form-item label="交易地点" prop="tradeLocation">
+            <el-input v-model="form.tradeLocation" maxlength="255" show-word-limit placeholder="比如：图书馆东门" />
+          </el-form-item>
+        </div>
+        <el-form-item label="图片地址（可选）" prop="image">
+          <el-input v-model="form.image" maxlength="500" placeholder="https://..." />
+        </el-form-item>
+        <el-form-item label="物品描述" prop="description">
+          <el-input
+            v-model="form.description"
+            type="textarea"
+            :rows="4"
+            maxlength="1000"
+            show-word-limit
+            placeholder="使用时长、配件是否齐全、有无瑕疵"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="publishVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="submitPublish">发布</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { itemApi } from '@/api/item'
 import { useAddToCart } from '@/composables/useAddToCart'
+import { useRequireLogin } from '@/composables/useRequireLogin'
 import ItemCard from '@/components/ItemCard.vue'
 import StatePanel from '@/components/StatePanel.vue'
 
@@ -80,6 +122,7 @@ const PAGE_SIZE = 12
 
 const router = useRouter()
 const { addToCart } = useAddToCart()
+const requireLogin = useRequireLogin()
 
 const categories = ref([])
 const items = ref([])
@@ -169,8 +212,62 @@ function openItem(item) {
   router.push(`/secondhand/${item.id}`)
 }
 
-function explainPublish() {
-  ElMessage.info('campus-secondhand-service 目前只开放查询与库存接口，发布功能待后端补齐')
+/** 发布闲置：与社区提问保持一致，用一个弹窗承载，不单开路由 */
+const publishVisible = ref(false)
+const submitting = ref(false)
+const publishFormRef = ref(null)
+const form = reactive({
+  name: '',
+  price: 0,
+  categoryId: '',
+  conditionDesc: '',
+  tradeLocation: '',
+  image: '',
+  description: ''
+})
+const rules = {
+  name: [{ required: true, message: '请填写物品名称', trigger: 'blur' }],
+  price: [{ required: true, message: '请填写价格', trigger: 'change' }],
+  categoryId: [{ required: true, message: '请选择分类', trigger: 'change' }]
+}
+
+function openPublish() {
+  if (!requireLogin('登录后才能发布闲置')) return
+  publishVisible.value = true
+}
+
+async function submitPublish() {
+  const valid = await publishFormRef.value?.validate().catch(() => false)
+  if (!valid) return
+  submitting.value = true
+  try {
+    await itemApi.publish({
+      name: form.name.trim(),
+      // 页面按「元」输入，后端按「分」存储，四舍五入避免浮点误差
+      price: Math.round(Number(form.price) * 100),
+      categoryId: form.categoryId,
+      conditionDesc: form.conditionDesc.trim(),
+      tradeLocation: form.tradeLocation.trim(),
+      image: form.image.trim(),
+      description: form.description.trim()
+    })
+    ElMessage.success('发布成功')
+    publishVisible.value = false
+    Object.assign(form, {
+      name: '',
+      price: 0,
+      categoryId: '',
+      conditionDesc: '',
+      tradeLocation: '',
+      image: '',
+      description: ''
+    })
+    await reload()
+  } catch {
+    // 错误提示由 request 统一弹出
+  } finally {
+    submitting.value = false
+  }
 }
 
 watch([categoryId, sort], () => {
@@ -193,3 +290,17 @@ onMounted(() => {
 
 onBeforeUnmount(() => clearTimeout(searchTimer))
 </script>
+
+<style scoped>
+/* 发布弹窗里的两列布局：价格+分类、成色+地点 */
+.publish-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 560px) {
+  .publish-row {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

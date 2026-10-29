@@ -3,12 +3,15 @@ package com.campushub.secondhand.controller;
 import com.campushub.api.dto.OrderDetailDTO;
 import com.campushub.common.Result;
 import com.campushub.common.domain.PageDTO;
+import com.campushub.secondhand.domain.dto.ItemPublishDTO;
 import com.campushub.secondhand.domain.query.ItemPageQuery;
 import com.campushub.secondhand.domain.vo.ItemVO;
 import com.campushub.secondhand.service.IItemService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -39,6 +42,15 @@ public class ItemController {
     @GetMapping("/{id}")
     public Result<ItemVO> queryItemById(@PathVariable("id") Long id) {
         return Result.success(itemService.queryItemById(id));
+    }
+
+    /**
+     * 发布商品：需登录（网关白名单只放行 GET /api/items/**，POST 会走鉴权）。
+     * sellerId 取自网关注入的 user-info，请求体里没有这个字段。
+     */
+    @PostMapping
+    public Result<Long> publish(@RequestBody @Validated ItemPublishDTO dto) {
+        return Result.success(itemService.publish(dto));
     }
 
     /** 内部接口：交易服务下单预扣（Feign 直连 item-service，不经网关） */

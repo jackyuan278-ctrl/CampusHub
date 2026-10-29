@@ -11,6 +11,8 @@ import com.campushub.api.dto.OrderDetailDTO;
 import com.campushub.common.BizException;
 import com.campushub.common.domain.PageDTO;
 import com.campushub.common.domain.PageQuery;
+import com.campushub.common.interceptor.UserContext;
+import com.campushub.secondhand.domain.dto.ItemPublishDTO;
 import com.campushub.secondhand.domain.po.Category;
 import com.campushub.secondhand.domain.po.Item;
 import com.campushub.secondhand.domain.query.ItemPageQuery;
@@ -27,6 +29,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -53,7 +56,7 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
     private static final String SORT_PRICE_ASC = "priceAsc";
     private static final String SORT_PRICE_DESC = "priceDesc";
 
-    private static final int HOT_ITEM_LIMIT = 8;
+    private static final int HOT_ITEM_LIMIT = 10;
     private static final long HOT_CACHE_TTL_MINUTES = 5L;
     private static final String HOT_ITEMS_KEY = "campushub:item:hot:" + HOT_ITEM_LIMIT;
 
@@ -194,7 +197,7 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
         List<Item> items = lambdaQuery()
                 .eq(Item::getStatus, ItemStatus.ON_SHELF.getValue())
                 .orderByDesc(Item::getCreateTime)
-                .orderByAsc(Item::getId)
+                .orderByDesc(Item::getId)
                 .last("LIMIT " + HOT_ITEM_LIMIT)
                 .list();
         List<ItemVO> hotItems = toItemVOList(items);
@@ -236,6 +239,29 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
     }
 
     @Override
+    public Long publish(ItemPublishDTO dto) {
+        Long userId = UserContext.getUser();
+        if (userId == null) {
+            throw new BizException(BizException.BAD_REQUEST_CODE, "请先登录");
+        }
+        // 分类必须真实存在，否则商品会挂在一个查询时联不到名字的孤儿分类上
+        if (categoryMapper.selectById(dto.getCategoryId()) == null) {
+            throw new BizException(BizException.BAD_REQUEST_CODE, "分类不存在");
+        }
+        Item item = BeanUtil.copyProperties(dto, Item.class);
+        // 卖家身份与初始状态由服务端决定，DTO 里没有这两个字段，前端无法伪造
+        item.setSellerId(userId);
+        item.setStatus(ItemStatus.ON_SHELF.getValue());
+        LocalDateTime now = LocalDateTime.now();
+        item.setCreateTime(now);
+        item.setUpdateTime(now);
+        save(item);
+        // 热榜按 create_time 倒序，新品本该排最前，缓存不失效会让发布者 5 分钟内看不到自己的商品
+        evictHotItemsCache();
+        return item.getId();
+    }
+
+    @Override
     @Transactional(rollbackFor = BizException.class)
     public void deductStock(List<OrderDetailDTO> details) {
         validateStockDetails(details);
@@ -257,6 +283,8 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
                 }
             }
         }
+        // 商品状态已变更，主动失效热榜缓存：否则首页会在 TTL（5分钟）内继续展示已售商品
+        evictHotItemsCache();
     }
 
     @Override
@@ -283,6 +311,19 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
             // 这里只记日志不抛异常——抛了会回滚并让消息再次投递，形成死循环。
             log.warn("商品{}还原库存跳过，当前状态={}", itemId, item.getStatus());
         }
+        // 商品已回到在售，热榜应尽快反映（否则 5 分钟内热榜与实际不一致）
+        evictHotItemsCache();
+    }
+
+    /**
+     * 失效商品热榜缓存：读走 cache-aside，状态一变就删 key，让下次读回源重建。
+     * <p>
+     * 刻意不包 try-catch：删缓存失败说明 Redis 不可用，此时加购（购物车在 Redis）与下单链路
+     * 本来就走不通，让它顺着事务回滚、由全局异常处理器返回「系统繁忙」更诚实；
+     * 吞掉异常只会让热榜脏得毫无提示。
+     */
+    private void evictHotItemsCache() {
+        stringRedisTemplate.delete(HOT_ITEMS_KEY);
     }
 
     private void validateStockDetails(List<OrderDetailDTO> details) {

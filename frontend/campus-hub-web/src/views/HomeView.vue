@@ -127,6 +127,8 @@ const { addToCart } = useAddToCart()
 
 const loading = ref(true)
 const error = ref('')
+// 接口固定给 10 条（排行榜口径），首页网格只要 6 张卡，多余的不用渲染
+const HOME_HOT_LIMIT = 6
 const hotItems = ref([])
 const activities = ref([])
 const questions = ref([])
@@ -193,7 +195,9 @@ async function load() {
     loadQuestions(),
     tagApi.list({ silent: true })
   ])
-  hotItems.value = itemsResult.status === 'fulfilled' && Array.isArray(itemsResult.value) ? itemsResult.value : []
+  hotItems.value = itemsResult.status === 'fulfilled' && Array.isArray(itemsResult.value)
+    ? itemsResult.value.slice(0, HOME_HOT_LIMIT)
+    : []
   const activityPage = activityResult.status === 'fulfilled' ? activityResult.value : null
   activities.value = activityPage?.list || []
   activityTotal.value = Number(activityPage?.total || activities.value.length)

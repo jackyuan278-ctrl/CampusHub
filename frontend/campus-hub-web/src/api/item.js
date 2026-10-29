@@ -8,7 +8,9 @@ export const itemApi = {
   page: (params, options = {}) => request({ url: '/items', method: 'get', params }, options),
   hot: (options = {}) => request({ url: '/items/hot', method: 'get' }, options),
   detail: (id, options = {}) => request({ url: `/items/${id}`, method: 'get' }, options),
-  categories: (options = {}) => request({ url: '/items/categories', method: 'get' }, options)
+  categories: (options = {}) => request({ url: '/items/categories', method: 'get' }, options),
+  /** 发布闲置：需要登录，sellerId 由后端从 token 解析，请求体不含该字段 */
+  publish: (payload) => request({ url: '/items', method: 'post', data: payload })
 }
 
 export default itemApi
