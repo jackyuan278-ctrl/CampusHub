@@ -38,13 +38,7 @@
             <p>{{ line.spec || '校内面交 · 当面验货' }}</p>
           </div>
           <span class="line-price">¥{{ money(line.price) }}</span>
-          <el-input-number
-            :model-value="line.num"
-            :min="1"
-            :max="99"
-            size="small"
-            @change="(value) => changeNum(line, value)"
-          />
+          <span class="line-qty">×{{ line.num }}</span>
           <span class="line-subtotal">¥{{ money(line.price * line.num) }}</span>
           <button type="button" class="icon-button danger" aria-label="移除" @click="removeLine(line)">
             <el-icon><Delete /></el-icon>
@@ -102,15 +96,6 @@ function toggleOne(itemId, checked) {
   selected.value = checked
     ? [...selected.value, itemId]
     : selected.value.filter((id) => id !== itemId)
-}
-
-async function changeNum(line, value) {
-  if (!value || value === line.num) return
-  try {
-    await cart.updateNum(line.itemId, value)
-  } catch {
-    // 统一错误提示
-  }
 }
 
 async function removeLine(line) {

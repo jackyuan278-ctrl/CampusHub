@@ -92,6 +92,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             if (num == null || num <= 0) {
                 throw new BizException(400, "商品数量必须大于0");
             }
+            // 二手商品一物一件：即使绕过 DTO 的 @Max(1) 传了更大的数，服务端也一律按 1 计
+            num = 1;
             OrderDetailDTO  orderDetailDTO = new OrderDetailDTO();
             orderDetailDTO.setItemId(good.getItemId());
             orderDetailDTO.setNum(num);

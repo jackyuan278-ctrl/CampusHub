@@ -171,7 +171,7 @@ async function submit() {
         itemId: line.itemId,
         name: line.name,
         price: line.price,
-        num: line.num,
+        num: 1,
         image: line.image,
         spec: line.spec
       }))

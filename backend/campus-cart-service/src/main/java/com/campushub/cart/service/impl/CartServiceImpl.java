@@ -48,6 +48,8 @@ public class CartServiceImpl implements ICartService {
             String jsonStr = valueobj.toString();
             try {
                 CartItemVO itemVO = JSONUtil.toBean(jsonStr, CartItemVO.class);
+                // 历史脏数据兜底：旧版本允许 num>1，读出来一律归一到 1，否则前端合计会按旧数量放大
+                itemVO.setNum(1);
                 list.add(itemVO);
             } catch (Exception e) {
                 log.error("购物车项JSON解析失败，userId:{}, json:{}", userId, jsonStr, e);
@@ -62,20 +64,15 @@ public class CartServiceImpl implements ICartService {
         if (userId == null) {
             throw new BizException(400,"请先登录");
         }
-        Integer num = addCartDTO.getNum();
-        if (num <=0) {
-            throw new BizException(400,"加购数量必须大于0");
-        }
+        // 二手商品一物一件：数量恒为 1，不采信前端传值（DTO 的 @Max(1) 是第一道，这里不依赖校验也能兜住）
+        Integer num = 1;
         Long itemId = addCartDTO.getItemId();
         Object o = stringRedisTemplate.opsForHash().get(KEY_PREFIX + userId, itemId.toString());
         if (o != null) {
             String jsonStr = o.toString();
             try {
                 CartItemVO itemVO = JSONUtil.toBean(jsonStr, CartItemVO.class);
-                num = itemVO.getNum() +num;
-                if (num>99){
-                    num = 99;
-                }
+                // 重复加购是幂等操作：数量保持 1，不再累加
                 itemVO.setItemId(itemId);
                 itemVO.setNum(num);
                 String newjsonStr = JSONUtil.toJsonStr(itemVO);
@@ -108,13 +105,8 @@ public class CartServiceImpl implements ICartService {
         if (userId == null) {
             throw new BizException(400,"请先登录");
         }
-        Integer num = updateCartNumDTO.getNum();
-        if (num <=0) {
-            throw new BizException(400,"加购数量必须大于0");
-        }
-        if (num>99){
-            num = 99;
-        }
+        // 二手商品一物一件：数量恒为 1，不采信前端传值
+        Integer num = 1;
         Object o = stringRedisTemplate.opsForHash().get(KEY_PREFIX + userId, itemId.toString());
         if (o != null) {
             String jsonStr = o.toString();

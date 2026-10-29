@@ -22,10 +22,11 @@
     <template v-else-if="item">
       <section class="detail-layout">
         <div class="detail-gallery">
-          <div class="detail-cover" :class="tone">
+          <div class="detail-cover" :class="[tone, { 'is-sold-out': soldOut }]">
             <img v-if="item.image" :src="item.image" :alt="item.name" />
             <el-icon v-else :size="96"><component :is="iconOfCategory(item.categoryName)" /></el-icon>
-            <span class="condition-pill">{{ item.conditionDesc || '在售' }}</span>
+            <span class="condition-pill">{{ soldOut ? '已售出' : (item.conditionDesc || '在售') }}</span>
+            <div v-if="soldOut" class="sold-out-mask"><span>已售出</span></div>
           </div>
           <div class="detail-gallery-foot">
             <span><el-icon><Location /></el-icon>{{ item.tradeLocation || '校内面交' }}</span>
@@ -67,15 +68,15 @@
             </div>
 
             <div class="buy-row">
-              <span class="buy-label">数量</span>
-              <el-input-number v-model="num" :min="1" :max="99" size="default" />
+              <span class="buy-label">数量（二手物品一物一件）</span>
+              <b class="buy-qty">1 件</b>
             </div>
 
             <div class="detail-actions">
               <el-button type="primary" size="large" round :disabled="item.status !== 1" :loading="adding" @click="add">
-                <el-icon><ShoppingCart /></el-icon>加入购物车
+                <el-icon><ShoppingCart /></el-icon>{{ soldOut ? '已售出' : '加入购物车' }}
               </el-button>
-              <el-button size="large" round :disabled="item.status !== 1" @click="buyNow">立即购买</el-button>
+              <el-button size="large" round :disabled="item.status !== 1" @click="buyNow">{{ soldOut ? '已售出' : '立即购买' }}</el-button>
             </div>
             <p class="detail-hint">
               <el-icon><InfoFilled /></el-icon>下单前请与卖家确认物品状态，建议在教学楼、宿舍楼下等公共区域面交。
@@ -117,11 +118,12 @@ const item = ref(null)
 const related = ref([])
 const loading = ref(true)
 const error = ref('')
-const num = ref(1)
 const adding = ref(false)
 
 const tone = computed(() => toneOf(item.value?.categoryId))
 const status = computed(() => statusMeta(ITEM_STATUS, item.value?.status))
+/** 二手一物一件：status=3 表示这件货已经被买走 */
+const soldOut = computed(() => item.value?.status === 3)
 
 async function load() {
   loading.value = true
@@ -143,7 +145,7 @@ async function load() {
 
 async function add() {
   adding.value = true
-  const success = await addToCart(item.value, num.value)
+  const success = await addToCart(item.value, 1)
   adding.value = false
   return success
 }

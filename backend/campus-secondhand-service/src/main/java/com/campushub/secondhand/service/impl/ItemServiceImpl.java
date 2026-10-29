@@ -77,6 +77,8 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
     @Override
     public PageDTO<ItemVO> queryItemPage(ItemPageQuery query) {
         LambdaQueryWrapper<Item> lq = new QueryWrapper<Item>().lambda();
+        // 列表只展示在售(1)。已售(3) 若一并展示，需按 status 排序才能沉底，
+        // 而 cursor 分页依赖 id 连续（gt(id, cursorId)），加复合排序会漏数据，故不展示。
         lq.eq(Item::getStatus, ItemStatus.ON_SHELF.getValue());
         if (StrUtil.isNotBlank(query.getKeyword())) {
             lq.like(Item::getName, query.getKeyword());
@@ -263,15 +265,23 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
         validateStockDetails(details);
         for (OrderDetailDTO detail : details) {
             Long itemId = detail.getItemId();
+            // 退款恢复：已售(3) -> 在售(1)
+            // 必须带状态条件：只按 id 更新的话，下架/预订/在售的商品都会被刷回在售，等于可以无限刷货
+            boolean restored = lambdaUpdate()
+                    .eq(Item::getId, itemId)
+                    .eq(Item::getStatus, ItemStatus.SOLD.getValue())
+                    .set(Item::getStatus, ItemStatus.ON_SHELF.getValue())
+                    .update();
+            if (restored) {
+                continue;
+            }
             Item item = getById(itemId);
             if (item == null) {
                 throw new BizException(BizException.BAD_REQUEST_CODE, ITEM_NOT_FOUND_MESSAGE);
             }
-            // 退款恢复：已售(3) -> 在售(1)
-            lambdaUpdate()
-                    .eq(Item::getId, itemId)
-                    .set(Item::getStatus, ItemStatus.ON_SHELF.getValue())
-                    .update();
+            // 不是「已售」有两种可能：MQ 重复投递（此时已在售，属正常幂等）或状态异常。
+            // 这里只记日志不抛异常——抛了会回滚并让消息再次投递，形成死循环。
+            log.warn("商品{}还原库存跳过，当前状态={}", itemId, item.getStatus());
         }
     }
 

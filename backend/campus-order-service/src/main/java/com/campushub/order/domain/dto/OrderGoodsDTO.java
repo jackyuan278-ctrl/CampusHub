@@ -18,9 +18,10 @@ public class OrderGoodsDTO {
 
     private Integer price;
 
+    /** 二手商品一物一件，数量恒为 1 */
     @NotNull(message = "数量不能为空")
     @Min(value = 1, message = "数量至少为1")
-    @Max(value = 99, message = "单件商品最多购买99件")
+    @Max(value = 1, message = "二手商品一物一件，每单只能购买1件")
     private Integer num;
 
     private String spec;
