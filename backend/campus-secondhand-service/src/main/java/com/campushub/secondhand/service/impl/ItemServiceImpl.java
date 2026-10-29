@@ -239,6 +239,7 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long publish(ItemPublishDTO dto) {
         Long userId = UserContext.getUser();
         if (userId == null) {

@@ -42,6 +42,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
     // ============ 以下为核心业务（面试深挖区），由你实现，依赖已注入 ============
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long publish(ActivityFormDTO form, Long publisherId) {
         LocalDateTime signupStart = form.getSignupStartTime();
         LocalDateTime signupEnd = form.getSignupEndTime();
