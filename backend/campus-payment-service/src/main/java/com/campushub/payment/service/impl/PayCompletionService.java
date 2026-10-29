@@ -10,6 +10,8 @@ import com.campushub.payment.mapper.PayOrderMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 
@@ -19,6 +21,7 @@ import java.time.LocalDateTime;
 public class PayCompletionService {
     private final PayOrderMapper payOrderMapper;
     private final PayEventOutboxMapper outboxMapper;
+    private final PayEventPublisher payEventPublisher;
 
     @Transactional(rollbackFor = Exception.class)
     public boolean markPaidAndCreateEvent(Long payOrderId, Long orderId) {
@@ -45,6 +48,14 @@ public class PayCompletionService {
         event.setPublished(0);
         event.setCreateTime(LocalDateTime.now());
         outboxMapper.insert(event);
+        // 提交后立刻推一次，把最长 3 秒的轮询空窗压到毫秒级；推送失败时记录仍是 published=0，定时任务兜底。
+        // 必须挂在 afterCommit：事务没提交就发，一旦回滚就成了指向「不存在的支付」的幽灵通知。
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                payEventPublisher.publishOne(event);
+            }
+        });
         return true;
     }
 }

@@ -155,13 +155,31 @@ async function pay() {
   try {
     await payApi.pay(order.value.id, payType.value)
     ElMessage.success('支付成功')
-    await load()
     await auth.loadMe()
+    await waitForPaid()
   } catch {
     // 统一错误提示
   } finally {
     paying.value = false
   }
+}
+
+/**
+ * 支付单是同步落库的，但订单状态要等 outbox 事件经 MQ 传到交易服务才变「已支付」。
+ * 支付接口一返回就刷新必然读到旧的 status=1，所以按固定间隔追几次，拿到新状态立刻停。
+ */
+async function waitForPaid(maxTries = 5, interval = 700) {
+  for (let i = 0; i < maxTries; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, interval))
+    try {
+      const data = await orderApi.detail(route.params.id, { silent: true })
+      order.value = data
+      if (data.status !== 1) return
+    } catch {
+      // 单次查询失败不中断轮询，下一轮继续
+    }
+  }
+  ElMessage.info('支付已完成，订单状态同步中，稍后刷新即可')
 }
 
 onMounted(load)
