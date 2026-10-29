@@ -159,6 +159,7 @@ public class SignupServiceImpl extends ServiceImpl<SignupMapper, Signup> impleme
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void joinWaitlist(SignupFormDTO form, Long userId) {
         Long activityId = form.getActivityId();
         Activity activity = activityMapper.selectById(activityId);
@@ -179,7 +180,15 @@ public class SignupServiceImpl extends ServiceImpl<SignupMapper, Signup> impleme
             throw new BizException(400,"已报名或已在候补中，请勿重复加入");
         }
 
-        stringRedisTemplate.opsForList().rightPush(RedisKeys.signupWaitlist(activityId),userId.toString());
+        // 入队失败必须抛出：让上面的状态写入随事务回滚。
+        // 若只是吞掉异常，库里会留下 status=2 却不在队列里的记录，用户重试会被"请勿重复加入"永久挡住。
+        try {
+            stringRedisTemplate.opsForList()
+                    .rightPush(RedisKeys.signupWaitlist(activityId), userId.toString());
+        } catch (Exception e) {
+            log.error("候补入队失败，回滚状态写入，activityId={}, userId={}", activityId, userId, e);
+            throw new BizException(500, "服务器繁忙，请稍后重试");
+        }
     }
 
     private void validateSignupWindow(Activity activity) {
@@ -314,9 +323,16 @@ public class SignupServiceImpl extends ServiceImpl<SignupMapper, Signup> impleme
                 signupVO.setStartTime(act.getStartTime());
             }
             if (signupVO.getStatus().equals(2)) {
-                Long range = stringRedisTemplate.opsForList().indexOf(RedisKeys.signupWaitlist(signup.getActivityId()), userId.toString());
-                if (range != null) {
-                    signupVO.setWaitPosition(range.intValue() + 1);
+                // 排位只是锦上添花：Redis 不可用或队列里找不到人时留空，不能让整个"我的报名"接口失败
+                try {
+                    Long range = stringRedisTemplate.opsForList()
+                            .indexOf(RedisKeys.signupWaitlist(signup.getActivityId()), userId.toString());
+                    // indexOf 找不到人返回 -1（不是 null），直接 +1 会变成"第 0 位"
+                    if (range != null && range >= 0) {
+                        signupVO.setWaitPosition(range.intValue() + 1);
+                    }
+                } catch (Exception e) {
+                    log.warn("查询候补排位失败，activityId={}, userId={}", signup.getActivityId(), userId, e);
                 }
             }
             signupVOList.add(signupVO);
