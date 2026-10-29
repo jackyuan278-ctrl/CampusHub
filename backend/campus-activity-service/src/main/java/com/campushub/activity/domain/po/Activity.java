@@ -37,8 +37,11 @@ public class Activity implements Serializable {
 
     private LocalDateTime signupEndTime;
 
-    /** 总名额（剩余名额实时看 Redis signup:stock:{id}） */
+    /** 总名额：发布时写入一次，此后只读 */
     private Integer quota;
+
+    /** 剩余名额：报名 -1、取消 +1，是"能不能报上"的唯一裁决依据 */
+    private Integer remainQuota;
 
     /** 1报名中 2进行中 3已结束 4已取消 */
     private Integer status;

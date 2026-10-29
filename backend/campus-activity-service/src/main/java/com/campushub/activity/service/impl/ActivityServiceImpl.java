@@ -69,9 +69,11 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         activity.setCreateTime(LocalDateTime.now());
         // 发布即报名中；1→2、2→3 的流转归 ActivityStatusTask
         activity.setStatus(1);
+        // 剩余名额从总名额起步，此后只由报名/取消改动
+        activity.setRemainQuota(activity.getQuota());
         save(activity);
         stringRedisTemplate.opsForValue().set(RedisKeys.signupStock(activity.getId()),
-                activity.getQuota().toString());
+                activity.getRemainQuota().toString());
         saveDoc(activity);
         return activity.getId();
     }
@@ -91,14 +93,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         pageDTO.setTotal(page.getTotal());
         for (Activity activity : activityList) {
             ActivityVO activityVO = BeanUtil.copyProperties(activity, ActivityVO.class);
-            if (activity.getStatus().equals(1)) {
-                String remain = stringRedisTemplate.opsForValue().get(RedisKeys.signupStock(activity.getId()));
-                if (remain == null) {
-                    activityVO.setRemainingQuota(activity.getQuota());
-                }else{
-                    activityVO.setRemainingQuota(Long.valueOf(remain).intValue());
-                }
-            }
+            // 余量直接来自 DB，Redis 只是挡流缓存，这里不再依赖它
+            activityVO.setRemainingQuota(activity.getRemainQuota());
             activityVOList.add(activityVO);
 
         }
@@ -113,14 +109,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             throw new BizException(400,"活动不存在");
         }
         ActivityVO activityVO = BeanUtil.copyProperties(activity, ActivityVO.class);
-        if (activity.getStatus().equals(1)) {
-            String remain = stringRedisTemplate.opsForValue().get(RedisKeys.signupStock(activity.getId()));
-            if (remain == null) {
-                activityVO.setRemainingQuota(activity.getQuota());
-            }else{
-                activityVO.setRemainingQuota(Long.valueOf(remain).intValue());
-            }
-        }
+        activityVO.setRemainingQuota(activity.getRemainQuota());
         if (userId!=null){
             Signup signup = signupMapper.selectOne(Wrappers.<Signup>lambdaQuery()
                     .eq(Signup::getUserId, userId)

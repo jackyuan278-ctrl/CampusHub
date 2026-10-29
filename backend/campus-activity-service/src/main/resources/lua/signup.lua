@@ -1,23 +1,25 @@
- local userId =ARGV[1]
- local quota = ARGV[2]
+-- 报名挡流脚本：只读不写，不做任何账本初始化
+-- 返回 0=继续  1=名额已满  2=重复报名  3=缓存未就绪（由 Java 从 DB 重建后再问一次）
+local userId   = ARGV[1]
+local stockKey = KEYS[1]
+local userSet  = KEYS[2]
 
- local stockey = KEYS[1]
- local userSet = KEYS[2]
- local stock = redis.call('get', stockey)
- if (not stock) then
-     redis.call('set', stockey, quota)
-     stock = quota
- end
+local stock = redis.call('get', stockKey)
+if not stock then
+    return 3
+end
 
- if (tonumber(stock) <= 0) then
-     return 1
- end
+local n = tonumber(stock)
+if not n then
+    return 3
+end
 
- if(redis.call('sismember',userSet,userId)==1) then
-     return 2
- end
+if n <= 0 then
+    return 1
+end
 
- redis.call('incrby',stockey,-1)
- redis.call('sadd',userSet,userId)
+if redis.call('sismember', userSet, userId) == 1 then
+    return 2
+end
 
- return 0
+return 0
