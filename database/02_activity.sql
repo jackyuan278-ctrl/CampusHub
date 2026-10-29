@@ -36,15 +36,15 @@ CREATE TABLE IF NOT EXISTS tb_signup (
     KEY idx_activity_status (activity_id, status)
 ) ENGINE=InnoDB COMMENT='活动报名';
 
+-- 签到是「用户 × 自然日」维度的连续签到，与具体活动无关。
+-- 早期按活动签到设计带 activity_id，实体和业务逻辑都没有这个维度，故移除。
 CREATE TABLE IF NOT EXISTS tb_checkin (
     id BIGINT NOT NULL,
-    activity_id BIGINT NOT NULL COMMENT '活动业务ID',
     user_id BIGINT NOT NULL COMMENT '用户业务ID',
     checkin_date DATE NOT NULL,
     streak INT NOT NULL DEFAULT 1,
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_activity_user_date (activity_id, user_id, checkin_date),
-    KEY idx_activity_user (activity_id, user_id),
+    UNIQUE KEY uk_user_date (user_id, checkin_date),
     KEY idx_date (checkin_date)
-) ENGINE=InnoDB COMMENT='活动签到';
+) ENGINE=InnoDB COMMENT='用户每日签到';

@@ -9,13 +9,14 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @MapperScan("com.campushub.payment.mapper")
 @EnableFeignClients(basePackages = "com.campushub.api.client")
-@SpringBootApplication(scanBasePackages = "com.campushub")
+@SpringBootApplication(scanBasePackages = {"com.campushub.payment", "com.campushub.common"})
 public class PayApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(PayApplication.class, args);
     }
 }
+
 
 
 

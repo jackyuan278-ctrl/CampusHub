@@ -25,6 +25,9 @@ public class OrderDetail implements Serializable {
 
     private Long itemId;
 
+    /** 卖家用户业务ID（tb_order_detail.seller_id 非空，下单时从商品快照带过来） */
+    private Long sellerId;
+
     /** 以下字段为下单时商品快照 */
     private String name;
 

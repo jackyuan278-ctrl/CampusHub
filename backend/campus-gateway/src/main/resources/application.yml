@@ -45,12 +45,25 @@ spring:
             - Path=/api/activities/**
           filters:
             - StripPrefix=1
+        # 报名与签到同属活动服务，路径独立，需单独放行
+        - id: signup-service
+          uri: lb://campus-activity-service
+          predicates:
+            - Path=/api/signups/**
+          filters:
+            - StripPrefix=1
+        - id: checkin-service
+          uri: lb://campus-activity-service
+          predicates:
+            - Path=/api/checkins/**
+          filters:
+            - StripPrefix=1
         - id: community-service
           uri: lb://campus-community-service
           predicates:
             - Path=/api/community/**
           filters:
-            - StripPrefix=1
+            - StripPrefix=2
         - id: pay-service
           uri: lb://campus-payment-service
           predicates:
@@ -64,6 +77,10 @@ campus:
 logging:
   level:
     com.campushub: debug
+
+
+
+
 
 
 

@@ -21,13 +21,22 @@ public class Order implements Serializable {
     @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
 
+    /** 订单业务号（跨服务唯一标识，tb_order.order_no 非空且唯一，不可为空） */
+    private String orderNo;
+
     private Long userId;
+
+    /** 订单来源类型，目前固定 SECONDHAND */
+    private String orderType;
 
     /** 订单总金额（分） */
     private Integer totalFee;
 
-    /** 1余额 2模拟支付 */
+    /** 1余额 2模拟支付；0 表示下单时尚未选择支付方式 */
     private Integer paymentType;
+
+    /** 支付服务业务号，支付成功后回写；未支付时为 null */
+    private String paymentNo;
 
     /** 1未付款 2已付款 3已发货 4已完成 5已关闭 */
     private Integer status;

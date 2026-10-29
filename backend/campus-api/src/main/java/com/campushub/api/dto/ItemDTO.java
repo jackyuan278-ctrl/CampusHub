@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 public class ItemDTO {
 
     private Long id;
+    /** 卖家用户业务ID：下单时写入订单明细快照（tb_order_detail.seller_id 非空） */
+    private Long sellerId;
     private String name;
     private Integer price;
     private Integer stock;

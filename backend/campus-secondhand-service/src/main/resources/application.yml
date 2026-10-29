@@ -11,7 +11,7 @@ spring:
     redis:
       host: ${REDIS_HOST:124.220.155.27}
       port: 6379
-      password: ${REDIS_PASSWORD:}
+      password: ${REDIS_PASSWORD:123}
       database: 0
   datasource:
     url: jdbc:mysql://${MYSQL_HOST:124.220.155.27}:3306/campushub_secondhand?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai

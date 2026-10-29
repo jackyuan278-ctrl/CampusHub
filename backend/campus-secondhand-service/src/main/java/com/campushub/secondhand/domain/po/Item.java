@@ -21,28 +21,28 @@ public class Item implements Serializable {
     @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
 
+    /** 卖家业务ID */
+    private Long sellerId;
+
     private String name;
 
     /** 价格（分） */
     private Integer price;
 
-    private Integer stock;
-
     private String image;
 
     private Long categoryId;
 
-    private Long brandId;
-
-    private String spec;
-
-    /** 销量（冗余，下单后异步累加） */
-    private Integer sales;
-
-    /** 1上架 0下架 */
-    private Integer status;
+    /** 成色描述 */
+    private String conditionDesc;
 
     private String description;
+
+    /** 交易地点 */
+    private String tradeLocation;
+
+    /** 0下架 1在售 2预订 3已售 */
+    private Integer status;
 
     private LocalDateTime createTime;
 

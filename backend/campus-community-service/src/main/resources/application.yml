@@ -18,7 +18,7 @@ spring:
     redis:
       host: ${REDIS_HOST:124.220.155.27}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      password: ${REDIS_PASSWORD:123}
       database: 3
   # ES 搜索功能未实现前不影响启动；部署 ES 8 后由 dev 配置覆盖地址
   elasticsearch:

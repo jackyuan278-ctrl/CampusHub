@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS tb_pay_order (
     pay_user_id BIGINT NOT NULL COMMENT '用户业务ID',
     amount INT NOT NULL COMMENT '支付金额，单位：分',
     channel VARCHAR(32) NOT NULL DEFAULT 'MOCK' COMMENT '支付渠道',
-    status TINYINT NOT NULL DEFAULT 1 COMMENT '1待支付 2处理中 3已支付 4失败 5已关闭',
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '1待支付 2已支付 3处理中 4失败 5已关闭（与 PayStatus 常量一致）',
     third_party_no VARCHAR(128) DEFAULT NULL,
     expire_time DATETIME NULL,
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

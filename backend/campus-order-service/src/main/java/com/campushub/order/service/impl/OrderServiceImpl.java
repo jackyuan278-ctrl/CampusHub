@@ -9,6 +9,7 @@ import com.campushub.api.dto.OrderDetailDTO;
 import com.campushub.common.BizException;
 import com.campushub.common.Result;
 import com.campushub.common.interceptor.UserContext;
+import com.campushub.common.utils.BizNoGenerator;
 import com.campushub.order.domain.dto.OrderFormDTO;
 import com.campushub.order.domain.dto.OrderGoodsDTO;
 import com.campushub.order.domain.po.Order;
@@ -28,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -36,6 +38,16 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements IOrderService {
+
+    /** 订单来源类型，与 tb_order.order_type 默认值保持一致 */
+    private static final String ORDER_TYPE_SECONDHAND = "SECONDHAND";
+    /** 待支付 */
+    private static final int ORDER_STATUS_UNPAID = 1;
+    /** 下单时尚未选择支付方式，与 tb_order.payment_type 默认值保持一致 */
+    private static final int PAYMENT_TYPE_UNSET = 0;
+    /** 商品快照缺少卖家时的兜底值，避免 NOT NULL 约束直接失败 */
+    private static final Long NO_SELLER_ID = 0L;
+
     private final ItemClient  itemClient;
     private final IOrderDetailService orderDetailService;
     private final RabbitTemplate rabbitTemplate;
@@ -55,7 +67,12 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         //      3. 调 ItemClient.deductStock 预扣库存
         int totalFee = 0;
         List<OrderDetailDTO> orderDetailDTOList = new ArrayList<>();
+        // itemId -> 商品快照，写订单明细时复用，避免为了拿卖家 ID 再查一次商品服务
+        Map<Long, ItemDTO> itemSnapshots = new HashMap<>();
         for (OrderGoodsDTO good : goods) {
+            if (good == null || good.getItemId() == null) {
+                throw new BizException(400, "商品信息不完整");
+            }
             Result<ItemDTO> itemDTOResult = itemClient.queryItemById(good.getItemId());
             if (itemDTOResult==null){
                 throw new BizException(400,"商品不存在");
@@ -64,9 +81,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             if (data==null){
                 throw new BizException(400,"商品不存在");
             }
-            if (good == null || good.getItemId() == null) {
-                throw new BizException(400, "商品信息不完整");
-            }
+            itemSnapshots.put(good.getItemId(), data);
             Integer num = good.getNum();
             if (num == null || num <= 0) {
                 throw new BizException(400, "商品数量必须大于0");
@@ -81,8 +96,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             good.setPrice(data.getPrice());
             good.setImage(data.getImage());
             good.setSpec(data.getSpec());
-            Integer newFee = data.getPrice();
-            totalFee += newFee * num;
+            Integer unitPrice = data.getPrice();
+            totalFee += unitPrice * num;
         }
 
         Result<Void> voidResult = itemClient.deductStock(orderDetailDTOList);
@@ -94,8 +109,13 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         try {
             Order order = new Order();
             BeanUtils.copyProperties(orderFormDTO,order);
+            order.setOrderNo(BizNoGenerator.order());
+            order.setOrderType(ORDER_TYPE_SECONDHAND);
             order.setUserId(userId);
             order.setTotalFee(totalFee);
+            // 显式置为待支付，不依赖数据库默认值：markPaySuccess / closeOrder 都按 status=1 做条件更新
+            order.setStatus(ORDER_STATUS_UNPAID);
+            order.setPaymentType(PAYMENT_TYPE_UNSET);
             order.setCreateTime(LocalDateTime.now());
             this.save(order);
             List<OrderDetail> orderDetailList = new ArrayList<>();
@@ -104,6 +124,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 OrderDetail orderDetail = new OrderDetail();
                 BeanUtils.copyProperties(good,orderDetail);
                 orderDetail.setItemId(good.getItemId());
+                // 卖家 ID 是 tb_order_detail 的非空快照字段，必须在明细里固化，避免回查商品库
+                ItemDTO snapshot = itemSnapshots.get(good.getItemId());
+                orderDetail.setSellerId(snapshot == null || snapshot.getSellerId() == null
+                        ? NO_SELLER_ID : snapshot.getSellerId());
                 orderDetail.setCreateTime(LocalDateTime.now());
                 orderDetail.setOrderId(order.getId());
                 OrderGoodsVO orderGoodsVO = new OrderGoodsVO();

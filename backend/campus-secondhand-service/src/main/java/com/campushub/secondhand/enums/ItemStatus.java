@@ -7,7 +7,9 @@ import lombok.Getter;
 public enum ItemStatus {
 
     OFF_SHELF(0, "下架"),
-    ON_SHELF(1, "上架");
+    ON_SHELF(1, "在售"),
+    RESERVED(2, "预订"),
+    SOLD(3, "已售");
 
     private static final String INVALID_STATUS_MESSAGE = "非法的商品状态: ";
 

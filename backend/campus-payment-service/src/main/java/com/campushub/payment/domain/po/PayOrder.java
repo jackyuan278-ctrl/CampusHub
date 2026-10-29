@@ -21,6 +21,9 @@ public class PayOrder implements Serializable {
     @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
 
+    /** 支付业务号（跨服务唯一标识，tb_pay_order.payment_no 非空且唯一） */
+    private String paymentNo;
+
     /** 业务订单号（trade 服务订单 id），唯一键保证一单一支付单 */
     private Long bizOrderNo;
 

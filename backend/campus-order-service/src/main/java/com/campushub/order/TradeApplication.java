@@ -7,13 +7,14 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 
 @MapperScan("com.campushub.order.mapper")
 @EnableFeignClients(basePackages = "com.campushub.api.client")
-@SpringBootApplication(scanBasePackages = "com.campushub")
+@SpringBootApplication(scanBasePackages = {"com.campushub.order", "com.campushub.common"})
 public class TradeApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(TradeApplication.class, args);
     }
 }
+
 
 
 

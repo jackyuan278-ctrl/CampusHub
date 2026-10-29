@@ -13,6 +13,9 @@ import java.time.LocalDateTime;
 public class PayEventOutbox {
     @TableId(type = IdType.AUTO)
     private Long id;
+
+    /** 支付业务号（tb_pay_event_outbox.payment_no 非空，与 event_type 组成唯一键） */
+    private String paymentNo;
     private Long bizOrderNo;
     private Integer published;
     private LocalDateTime createTime;

@@ -7,6 +7,7 @@ import com.campushub.api.dto.OrderDTO;
 import com.campushub.common.BizException;
 import com.campushub.common.Result;
 import com.campushub.common.interceptor.UserContext;
+import com.campushub.common.utils.BizNoGenerator;
 import com.campushub.payment.domain.PayStatus;
 import com.campushub.payment.domain.dto.PayFormDTO;
 import com.campushub.payment.domain.po.PayOrder;
@@ -79,6 +80,7 @@ public class PayOrderServiceImpl extends ServiceImpl<PayOrderMapper, PayOrder> i
         if (payOrder == null) {
             // 首次支付时创建支付单；唯一索引处理多实例下的并发创建。
             PayOrder created = new PayOrder();
+            created.setPaymentNo(BizNoGenerator.payment());
             created.setBizOrderNo(orderId);
             created.setPayUserId(userId);
             created.setAmount(order.getTotalFee());

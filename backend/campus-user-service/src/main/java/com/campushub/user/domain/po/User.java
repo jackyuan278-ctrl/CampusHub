@@ -1,6 +1,7 @@
 package com.campushub.user.domain.po;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -29,6 +30,8 @@ public class User implements Serializable {
 
     private String phone;
 
+    /** 头像地址，映射数据库 avatar_url 列 */
+    @TableField("avatar_url")
     private String avatar;
 
     /** 账户余额（分） */

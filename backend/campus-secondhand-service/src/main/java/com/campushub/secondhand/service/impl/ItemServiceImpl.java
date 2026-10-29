@@ -11,13 +11,11 @@ import com.campushub.api.dto.OrderDetailDTO;
 import com.campushub.common.BizException;
 import com.campushub.common.domain.PageDTO;
 import com.campushub.common.domain.PageQuery;
-import com.campushub.secondhand.domain.po.Brand;
 import com.campushub.secondhand.domain.po.Category;
 import com.campushub.secondhand.domain.po.Item;
 import com.campushub.secondhand.domain.query.ItemPageQuery;
 import com.campushub.secondhand.domain.vo.ItemVO;
 import com.campushub.secondhand.enums.ItemStatus;
-import com.campushub.secondhand.mapper.BrandMapper;
 import com.campushub.secondhand.mapper.CategoryMapper;
 import com.campushub.secondhand.mapper.ItemMapper;
 import com.campushub.secondhand.service.IItemService;
@@ -74,7 +72,6 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
     private static final String HOT_CACHE_READ_FAILED_MESSAGE = "读取热卖商品缓存失败，回源数据库";
     private static final String HOT_CACHE_WRITE_FAILED_MESSAGE = "写入热卖商品缓存失败";
 
-    private final BrandMapper brandMapper;
     private final CategoryMapper categoryMapper;
     private final StringRedisTemplate stringRedisTemplate;
     @Override
@@ -106,7 +103,7 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
         String sort = StrUtil.blankToDefault(query.getSort(), DEFAULT_SORT);
         switch (sort) {
             case SORT_SALES:
-                lq.orderByDesc(Item::getSales).orderByAsc(Item::getId);
+                lq.orderByDesc(Item::getCreateTime).orderByAsc(Item::getId);
                 break;
             case SORT_PRICE_ASC:
                 lq.orderByAsc(Item::getPrice).orderByAsc(Item::getId);
@@ -130,10 +127,6 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
                 throw new BizException(BizException.BAD_REQUEST_CODE, SORT_CURSOR_REQUIRED_MESSAGE);
             }
             switch (sort) {
-                case SORT_SALES:
-                    lq.and(w -> w.lt(Item::getSales, query.getCursorSortValue())
-                            .or().eq(Item::getSales, query.getCursorSortValue()).gt(Item::getId, query.getCursorId()));
-                    break;
                 case SORT_PRICE_ASC:
                     lq.and(w -> w.gt(Item::getPrice, query.getCursorSortValue())
                             .or().eq(Item::getPrice, query.getCursorSortValue()).gt(Item::getId, query.getCursorId()));
@@ -158,25 +151,16 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
 
         List<Long> categoryIds = result.getRecords().stream()
                 .map(Item::getCategoryId).filter(Objects::nonNull).distinct().collect(Collectors.toList());
-        List<Long> brandIds = result.getRecords().stream()
-                .map(Item::getBrandId).filter(Objects::nonNull).distinct().collect(Collectors.toList());
         Map<Long, Category> categoryMap = categoryIds.isEmpty() ? Collections.emptyMap()
                 : categoryMapper.selectBatchIds(categoryIds).stream()
                         .collect(Collectors.toMap(Category::getId, c -> c));
-        Map<Long, Brand> brandMap = brandIds.isEmpty() ? Collections.emptyMap()
-                : brandMapper.selectBatchIds(brandIds).stream()
-                        .collect(Collectors.toMap(Brand::getId, b -> b));
 
         List<ItemVO> itemVoList = new ArrayList<>();
         for (Item item : result.getRecords()) {
             ItemVO itemVO = BeanUtil.copyProperties(item, ItemVO.class);
             Category category = categoryMap.get(item.getCategoryId());
-            Brand brand = brandMap.get(item.getBrandId());
             if (category != null) {
                 itemVO.setCategoryName(category.getName());
-            }
-            if (brand != null) {
-                itemVO.setBrand(brand.getName());
             }
             itemVoList.add(itemVO);
         }
@@ -188,7 +172,7 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
             Item lastItem = result.getRecords().isEmpty() ? null : result.getRecords().get(result.getRecords().size() - LAST_RECORD_INDEX_OFFSET);
             pageDTO.setNextCursor(lastItem == null ? null : lastItem.getId());
             pageDTO.setNextCursorSortValue(lastItem == null || DEFAULT_SORT.equals(sort) ? null
-                    : SORT_SALES.equals(sort) ? lastItem.getSales() : lastItem.getPrice());
+                    : SORT_PRICE_ASC.equals(sort) || SORT_PRICE_DESC.equals(sort) ? lastItem.getPrice() : null);
         }
 
         return pageDTO;
@@ -207,7 +191,7 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
 
         List<Item> items = lambdaQuery()
                 .eq(Item::getStatus, ItemStatus.ON_SHELF.getValue())
-                .orderByDesc(Item::getSales)
+                .orderByDesc(Item::getCreateTime)
                 .orderByAsc(Item::getId)
                 .last("LIMIT " + HOT_ITEM_LIMIT)
                 .list();
@@ -222,18 +206,13 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
 
     private List<ItemVO> toItemVOList(List<Item> items) {
         List<Long> categoryIds = items.stream().map(Item::getCategoryId).filter(Objects::nonNull).distinct().collect(Collectors.toList());
-        List<Long> brandIds = items.stream().map(Item::getBrandId).filter(Objects::nonNull).distinct().collect(Collectors.toList());
         Map<Long, Category> categoryMap = categoryIds.isEmpty() ? Collections.emptyMap()
                 : categoryMapper.selectBatchIds(categoryIds).stream().collect(Collectors.toMap(Category::getId, c -> c));
-        Map<Long, Brand> brandMap = brandIds.isEmpty() ? Collections.emptyMap()
-                : brandMapper.selectBatchIds(brandIds).stream().collect(Collectors.toMap(Brand::getId, b -> b));
         List<ItemVO> result = new ArrayList<>();
         for (Item item : items) {
             ItemVO vo = BeanUtil.copyProperties(item, ItemVO.class);
             Category category = categoryMap.get(item.getCategoryId());
-            Brand brand = brandMap.get(item.getBrandId());
             if (category != null) vo.setCategoryName(category.getName());
-            if (brand != null) vo.setBrand(brand.getName());
             result.add(vo);
         }
         return result;
@@ -247,14 +226,9 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
         }
         ItemVO itemVO = BeanUtil.copyProperties(item, ItemVO.class);
         Long categoryId = item.getCategoryId();
-        Long brandId = item.getBrandId();
-        Brand brand = brandMapper.selectById(brandId);
         Category category = categoryMapper.selectById(categoryId);
         if (category != null) {
             itemVO.setCategoryName(category.getName());
-        }
-        if (brand != null) {
-            itemVO.setBrand(brand.getName());
         }
         return itemVO;
     }
@@ -265,17 +239,20 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
         validateStockDetails(details);
         details.sort(Comparator.comparing(OrderDetailDTO::getItemId));
         for (OrderDetailDTO detail : details) {
-            Integer num = detail.getNum();
             Long itemId = detail.getItemId();
-            boolean update = lambdaUpdate().eq(Item::getId, itemId).ge(Item::getStock, num).setDecrBy(Item::getStock, num).update();
+            // 二手交易：在售(1) -> 已售(3)，无库存字段，用状态标记交易占用
+            boolean update = lambdaUpdate()
+                    .eq(Item::getId, itemId)
+                    .eq(Item::getStatus, ItemStatus.ON_SHELF.getValue())
+                    .set(Item::getStatus, ItemStatus.SOLD.getValue())
+                    .update();
             if (!update) {
                 Item item = getById(itemId);
                 if (item != null) {
                     throw new BizException(BizException.BAD_REQUEST_CODE, STOCK_NOT_ENOUGH_MESSAGE);
-                }else{
+                } else {
                     throw new BizException(BizException.BAD_REQUEST_CODE, ITEM_NOT_FOUND_MESSAGE);
                 }
-
             }
         }
     }
@@ -285,14 +262,16 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
     public void restoreStock(List<OrderDetailDTO> details) {
         validateStockDetails(details);
         for (OrderDetailDTO detail : details) {
-            Integer num = detail.getNum();
             Long itemId = detail.getItemId();
             Item item = getById(itemId);
             if (item == null) {
                 throw new BizException(BizException.BAD_REQUEST_CODE, ITEM_NOT_FOUND_MESSAGE);
             }
-            lambdaUpdate().eq(Item::getId, itemId).setIncrBy(Item::getStock,num).update();
-
+            // 退款恢复：已售(3) -> 在售(1)
+            lambdaUpdate()
+                    .eq(Item::getId, itemId)
+                    .set(Item::getStatus, ItemStatus.ON_SHELF.getValue())
+                    .update();
         }
     }
 

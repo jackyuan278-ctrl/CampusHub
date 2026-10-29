@@ -34,3 +34,16 @@ CREATE TABLE IF NOT EXISTS tb_address (
     PRIMARY KEY (id),
     KEY idx_user_id (user_id)
 ) ENGINE=InnoDB COMMENT='用户地址';
+
+-- 余额扣款幂等流水：一个业务订单号最多产生一笔扣款。
+-- uk_biz_order_no 是支付重试不重复扣款的最终保证，不能省。
+CREATE TABLE IF NOT EXISTS tb_balance_deduction (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    biz_order_no BIGINT NOT NULL COMMENT '业务订单ID，幂等键',
+    user_id BIGINT NOT NULL COMMENT '扣款用户ID',
+    amount INT NOT NULL COMMENT '扣款金额，单位：分',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_biz_order_no (biz_order_no),
+    KEY idx_user_id (user_id)
+) ENGINE=InnoDB COMMENT='余额扣款幂等流水';
