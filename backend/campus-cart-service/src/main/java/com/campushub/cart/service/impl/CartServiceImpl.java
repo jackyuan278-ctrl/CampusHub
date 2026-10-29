@@ -29,6 +29,10 @@ public class CartServiceImpl implements ICartService {
 
     private static final String KEY_PREFIX = "campushub:cart:";
 
+    // 与 secondhand 模块 ItemStatus 保持一致的取值范围（cart 不依赖 secondhand，故本地定义）
+    private static final int ITEM_STATUS_ON_SHELF = 1;
+    private static final int ITEM_STATUS_SOLD = 3;
+
     private final StringRedisTemplate stringRedisTemplate;
     private final ItemClient itemClient;
 
@@ -87,8 +91,11 @@ public class CartServiceImpl implements ICartService {
             if (itemDTO == null) {
                 throw new BizException(400,"货物不存在" );
             }
-            if (itemDTO.getStatus() != null && itemDTO.getStatus() == 0) {
-                throw new BizException(400,"商品已下架");
+            // 只认在售(1)：下架(0)、预订(2)、已售(3) 一律不可加购。
+            // 写 != 1 而不是 == 0，避免依赖「状态 2 永不出现」这个假设（详见 ItemStatus 枚举）
+            Integer status = itemDTO.getStatus();
+            if (status != null && status != ITEM_STATUS_ON_SHELF) {
+                throw new BizException(400, status == ITEM_STATUS_SOLD ? "商品已售出" : "商品暂不可购买");
             }
             CartItemVO cartItemVO = BeanUtil.copyProperties(itemDTO, CartItemVO.class);
             cartItemVO.setItemId(itemId);
