@@ -9,6 +9,7 @@ import com.campushub.activity.service.IActivitySearchService;
 import com.campushub.common.Result;
 import com.campushub.activity.domain.dto.PageDTO;
 import com.campushub.common.interceptor.UserContext;
+import com.campushub.common.utils.OssUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/activities")
@@ -27,6 +29,13 @@ public class ActivityController {
 
     private final IActivityService activityService;
     private final IActivitySearchService activitySearchService;
+    private final OssUtil ossUtil;
+
+    /** 上传活动封面（登录），返回地址供 ActivityFormDTO.coverUrl 使用 */
+    @PostMapping("/covers")
+    public Result<String> uploadCover(@RequestParam("file") MultipartFile file) {
+        return Result.success(ossUtil.upload(file));
+    }
 
     /** 发布活动（登录） */
     @PostMapping

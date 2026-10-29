@@ -1,5 +1,8 @@
 <template>
-  <article class="activity-row" @click="$emit('open', activity)">
+  <article class="activity-row" :class="{ 'has-cover': Boolean(activity.coverUrl) }" @click="$emit('open', activity)">
+    <div v-if="activity.coverUrl" class="activity-cover">
+      <img :src="activity.coverUrl" :alt="activity.title" loading="lazy" />
+    </div>
     <div class="date-tile" :class="tone">
       <b>{{ parts.day }}</b>
       <span>{{ parts.month }}</span>

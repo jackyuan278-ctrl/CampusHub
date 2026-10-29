@@ -12,7 +12,26 @@
     <div class="profile-layout">
       <aside class="profile-aside">
         <div class="profile-card">
-          <el-avatar :size="62" :src="auth.user?.avatar || undefined">{{ auth.displayName.slice(0, 1) }}</el-avatar>
+          <button
+            class="profile-avatar"
+            type="button"
+            :class="{ 'is-uploading': uploadingAvatar }"
+            :title="uploadingAvatar ? '正在上传头像' : '点击更换头像'"
+            @click="pickAvatar"
+          >
+            <el-avatar :size="72" :src="auth.user?.avatar || defaultAvatar" />
+            <span class="profile-avatar-mask">
+              <el-icon :size="18"><Camera /></el-icon>
+              <small>{{ uploadingAvatar ? '上传中…' : '更换头像' }}</small>
+            </span>
+          </button>
+          <input
+            ref="avatarInput"
+            class="avatar-input"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            @change="onAvatarChange"
+          />
           <h3>{{ auth.displayName }}</h3>
           <p>@{{ auth.user?.username || 'campus' }}</p>
           <div class="profile-balance">
@@ -49,9 +68,6 @@
                 <el-input v-model="profileForm.phone" maxlength="11" placeholder="用于联系与通知" />
               </el-form-item>
             </div>
-            <el-form-item label="头像地址">
-              <el-input v-model="profileForm.avatar" placeholder="图片链接，留空则显示昵称首字" />
-            </el-form-item>
             <div class="form-actions">
               <el-button type="primary" round :loading="savingProfile" @click="saveProfile">保存资料</el-button>
             </div>
@@ -154,7 +170,7 @@
           <StatePanel v-if="!follows.length" type="empty" title="还没有关注任何人" description="在问题详情页可以关注回答者。" action-text="去社区" @action="router.push('/community')" />
           <ul v-else class="follow-list">
             <li v-for="user in follows" :key="user.id">
-              <el-avatar :size="38" :src="user.avatarUrl || undefined">{{ (user.nickname || '同').slice(0, 1) }}</el-avatar>
+              <el-avatar :size="38" :src="user.avatarUrl || defaultAvatar" />
               <div>
                 <b>{{ user.nickname || user.username }}</b>
                 <small>{{ user.role === 1 ? '管理员' : '校园同学' }}</small>
@@ -183,6 +199,7 @@ import StatePanel from '@/components/StatePanel.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import CheckinCard from '@/components/CheckinCard.vue'
 import AddressDialog from '@/components/AddressDialog.vue'
+import defaultAvatar from '@/assets/avatar-default.svg'
 
 const route = useRoute()
 const router = useRouter()
@@ -209,7 +226,8 @@ const addressVisible = ref(false)
 const editingAddress = ref(null)
 const passwordRef = ref(null)
 
-const profileForm = reactive({ nickname: '', phone: '', avatar: '' })
+/** 头像单独走上传接口、上传即写库，不参与「保存资料」，所以不放进 profileForm */
+const profileForm = reactive({ nickname: '', phone: '' })
 const passwordForm = reactive({ oldPassword: '', newPassword: '', confirmPassword: '' })
 
 const passwordRules = {
@@ -244,8 +262,7 @@ function fullAddress(address) {
 function syncProfileForm() {
   Object.assign(profileForm, {
     nickname: auth.user?.nickname || '',
-    phone: auth.user?.phone || '',
-    avatar: auth.user?.avatar || ''
+    phone: auth.user?.phone || ''
   })
 }
 
@@ -284,6 +301,41 @@ async function loadCheckin() {
     checkin.value = await checkinApi.mine({ silent: true })
   } catch {
     checkin.value = { signedToday: false, streak: 0, checkinDates: [] }
+  }
+}
+
+const avatarInput = ref(null)
+const uploadingAvatar = ref(false)
+const AVATAR_MAX_SIZE = 5
+const AVATAR_ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+
+/** 点头像本身触发文件选择，不再单独占一个表单项 */
+function pickAvatar() {
+  if (uploadingAvatar.value) return
+  avatarInput.value?.click()
+}
+
+/** 头像上传接口自己会写库，上传完直接刷新登录态，右上角和本页头像一起变 */
+async function onAvatarChange(event) {
+  const file = event.target.files?.[0]
+  // 清空 value，否则连续选同一张图不会再触发 change
+  event.target.value = ''
+  if (!file) return
+  if (!AVATAR_ALLOWED.includes(file.type)) {
+    return ElMessage.error('头像只支持 jpg / png / webp / gif')
+  }
+  if (file.size > AVATAR_MAX_SIZE * 1024 * 1024) {
+    return ElMessage.error(`头像不能超过 ${AVATAR_MAX_SIZE}MB`)
+  }
+  uploadingAvatar.value = true
+  try {
+    await userApi.uploadAvatar(file)
+    await auth.loadMe()
+    ElMessage.success('头像已更新')
+  } catch {
+    // 请求层已弹过提示（含「上传未启用」这类后端文案）
+  } finally {
+    uploadingAvatar.value = false
   }
 }
 

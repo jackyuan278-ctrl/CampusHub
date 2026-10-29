@@ -39,6 +39,10 @@
         </div>
       </section>
 
+      <div v-if="activity.coverUrl" class="activity-cover-banner">
+        <img :src="activity.coverUrl" :alt="activity.title" />
+      </div>
+
       <section class="activity-detail-layout">
         <div class="activity-detail-main">
           <div class="panel">

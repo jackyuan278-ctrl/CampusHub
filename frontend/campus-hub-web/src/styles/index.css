@@ -439,6 +439,14 @@ a { color: inherit; text-decoration: none; }
 .profile-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 26px; align-items: start; }
 .profile-aside { display: grid; gap: 14px; position: sticky; top: 90px; }
 .profile-card { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 22px; border: 1px solid var(--line); border-radius: 22px; background: #fff; text-align: center; }
+/* 头像即上传入口：悬停（或上传中）盖一层相机遮罩 */
+.profile-avatar { position: relative; padding: 0; border: 0; border-radius: 50%; background: none; line-height: 0; cursor: pointer; }
+.profile-avatar .el-avatar { display: block; }
+.profile-avatar-mask { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 50%; color: #fff; font-size: 11px; line-height: 1.2; background: rgba(18, 26, 38, .52); opacity: 0; transition: opacity .2s ease; }
+.profile-avatar:hover .profile-avatar-mask,
+.profile-avatar.is-uploading .profile-avatar-mask { opacity: 1; }
+.profile-avatar.is-uploading { cursor: progress; }
+.avatar-input { display: none; }
 .profile-card h3 { margin: 8px 0 0; font-size: 17px; }
 .profile-card > p { margin: 0; color: var(--muted); font-size: 11px; }
 .profile-balance { width: 100%; margin-top: 16px; padding: 13px; border-radius: 14px; background: var(--mint); }
@@ -551,5 +559,18 @@ a { color: inherit; text-decoration: none; }
   .cart-line .line-qty, .line-subtotal { grid-column: 3; grid-row: 2; }
   .cart-line .icon-button { grid-column: 4; grid-row: 1; }
   .line-price { grid-column: 4; grid-row: 2; }
+}
+
+/* ===== 活动封面：列表缩略图 + 详情页横幅 ===== */
+.activity-cover { flex: 0 0 auto; width: 104px; height: 76px; border-radius: 14px; overflow: hidden; background: var(--sky); }
+.activity-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* 有封面时用封面替代日期块，避免一行里挤两个方块 */
+.activity-row.has-cover .date-tile { display: none; }
+.activity-cover-banner { margin-bottom: 22px; overflow: hidden; border-radius: 20px; }
+.activity-cover-banner img { display: block; width: 100%; max-height: 320px; object-fit: cover; }
+
+@media (max-width: 760px) {
+  .activity-cover { display: none; }
+  .activity-cover-banner img { max-height: 190px; }
 }
 

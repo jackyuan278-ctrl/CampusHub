@@ -47,6 +47,12 @@
             <artifactId>campus-common</artifactId>
             <version>1.0.0</version>
         </dependency>
+        <!-- 批量查询接口的返回体 UserBriefDTO 定义在 campus-api，避免两个服务各写一份 VO 后字段漂移 -->
+        <dependency>
+            <groupId>com.campushub</groupId>
+            <artifactId>campus-api</artifactId>
+            <version>1.0.0</version>
+        </dependency>
         <dependency>
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>

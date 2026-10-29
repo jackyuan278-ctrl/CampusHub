@@ -10,7 +10,13 @@ export const itemApi = {
   detail: (id, options = {}) => request({ url: `/items/${id}`, method: 'get' }, options),
   categories: (options = {}) => request({ url: '/items/categories', method: 'get' }, options),
   /** 发布闲置：需要登录，sellerId 由后端从 token 解析，请求体不含该字段 */
-  publish: (payload) => request({ url: '/items', method: 'post', data: payload })
+  publish: (payload) => request({ url: '/items', method: 'post', data: payload }),
+  /** 上传商品图：返回可直接写入 image 字段的地址 */
+  uploadImage: (file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request({ url: '/items/images', method: 'post', data: form, headers: { 'Content-Type': 'multipart/form-data' }, timeout: 20000 })
+  }
 }
 
 export default itemApi

@@ -5,6 +5,9 @@ spring:
     web-application-type: reactive
   application:
     name: campus-gateway
+  # 图片上传走网关转发，默认 256KB 的编解码缓冲容易被撑爆，放到 8MB
+  codec:
+    max-in-memory-size: 8MB
   # 网关无数据库，排除 zg-common 传递引入的 JDBC 自动配置
   autoconfigure:
     exclude:

@@ -1,6 +1,8 @@
 package com.campushub.user.controller;
 
+import com.campushub.api.dto.UserBriefDTO;
 import com.campushub.common.Result;
+import com.campushub.common.utils.OssUtil;
 import com.campushub.user.domain.dto.ChangePasswordDTO;
 import com.campushub.user.domain.dto.LoginFormDTO;
 import com.campushub.user.domain.dto.RegisterFormDTO;
@@ -18,6 +20,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/users")
@@ -25,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final IUserService userService;
+    private final OssUtil ossUtil;
 
     /** 免鉴权（网关白名单） */
     @PostMapping("/register")
@@ -56,6 +62,14 @@ public class UserController {
         return Result.success();
     }
 
+    /** 上传头像：传 OSS 后立刻写库，返回可直接展示的新地址 */
+    @PostMapping("/avatar")
+    public Result<String> uploadAvatar(@RequestParam("file") MultipartFile file) {
+        String url = ossUtil.upload(file);
+        userService.updateAvatar(url);
+        return Result.success(url);
+    }
+
     /** 内部接口：支付服务扣减余额（Feign 直连 user-service，不经网关） */
     @PutMapping("/{id}/balance/deduct")
     public Result<Void> deductBalance(@PathVariable("id") Long userId,
@@ -63,6 +77,15 @@ public class UserController {
                                       @RequestParam("amount") Integer amount) {
         userService.deductBalance(userId, orderId, amount);
         return Result.success();
+    }
+
+    /**
+     * 内部接口：批量查用户昵称/头像（社区服务补作者信息用，Feign 直连不经网关）。
+     * 放在 /users/batch 而不是 /users/{id}：后者会被网关当成普通资料查询，公网就能枚举用户。
+     */
+    @PostMapping("/batch")
+    public Result<List<UserBriefDTO>> queryBatch(@RequestBody List<Long> ids) {
+        return Result.success(userService.queryBriefByIds(ids));
     }
 }
 

@@ -7,6 +7,12 @@ export const userApi = {
   me: (options = {}) => request({ url: '/users/me', method: 'get' }, options),
   updateMe: (payload) => request({ url: '/users/me', method: 'put', data: payload }),
   changePassword: (payload) => request({ url: '/users/password', method: 'put', data: payload }),
+  /** 上传头像：上传成功后后端会同时写库，返回新的头像地址 */
+  uploadAvatar: (file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request({ url: '/users/avatar', method: 'post', data: form, headers: { 'Content-Type': 'multipart/form-data' }, timeout: 20000 })
+  },
 
   addresses: (options = {}) => request({ url: '/users/addresses', method: 'get' }, options),
   createAddress: (payload) => request({ url: '/users/addresses', method: 'post', data: payload }),

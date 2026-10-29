@@ -86,8 +86,8 @@
             <el-input v-model="form.tradeLocation" maxlength="255" show-word-limit placeholder="比如：图书馆东门" />
           </el-form-item>
         </div>
-        <el-form-item label="图片地址（可选）" prop="image">
-          <el-input v-model="form.image" maxlength="500" placeholder="https://..." />
+        <el-form-item label="商品图片（可选）" prop="image">
+          <ImageUploader v-model="form.image" :upload="itemApi.uploadImage" tip="上传商品图" />
         </el-form-item>
         <el-form-item label="物品描述" prop="description">
           <el-input
@@ -116,6 +116,7 @@ import { itemApi } from '@/api/item'
 import { useAddToCart } from '@/composables/useAddToCart'
 import { useRequireLogin } from '@/composables/useRequireLogin'
 import ItemCard from '@/components/ItemCard.vue'
+import ImageUploader from '@/components/ImageUploader.vue'
 import StatePanel from '@/components/StatePanel.vue'
 
 const PAGE_SIZE = 12

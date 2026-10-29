@@ -8,7 +8,13 @@ export const activityApi = {
   search: (params, options = {}) => request({ url: '/activities/search', method: 'get', params }, options),
   detail: (id, options = {}) => request({ url: `/activities/${id}`, method: 'get' }, options),
   publish: (payload) => request({ url: '/activities', method: 'post', data: payload }),
-  cancel: (id) => request({ url: `/activities/${id}/cancel`, method: 'put' })
+  cancel: (id) => request({ url: `/activities/${id}/cancel`, method: 'put' }),
+  /** 上传活动封面：返回可直接写入 coverUrl 的地址 */
+  uploadCover: (file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request({ url: '/activities/covers', method: 'post', data: form, headers: { 'Content-Type': 'multipart/form-data' }, timeout: 20000 })
+  }
 }
 
 /** 报名与候补 */

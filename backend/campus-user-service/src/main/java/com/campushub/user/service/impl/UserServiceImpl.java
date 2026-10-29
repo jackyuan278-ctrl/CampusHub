@@ -1,6 +1,7 @@
 package com.campushub.user.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.campushub.api.dto.UserBriefDTO;
 import com.campushub.common.BizException;
 import com.campushub.common.interceptor.UserContext;
 import com.campushub.common.utils.JwtTool;
@@ -18,16 +19,23 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Objects;
 import com.campushub.user.service.IUserService;
 import com.campushub.user.enums.UserStatus;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IUserService {
+
+    /** 批量查询单次上限：IN 列表再长就会把一次列表页的补数据变成整表扫描 */
+    private static final int MAX_BRIEF_QUERY = 100;
 
     private final JwtTool jwtTool;
 
@@ -134,6 +142,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     }
 
     @Override
+    public void updateAvatar(String avatarUrl) {
+        Long userId = UserContext.getUser();
+        if (userId == null) {
+            throw new BizException(400, "请先登录");
+        }
+        // 只写 avatar 一列：update-strategy 是 not_null，不会把昵称、手机号覆盖成 null
+        User update = new User();
+        update.setId(userId);
+        update.setAvatar(avatarUrl);
+        updateById(update);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void deductBalance(Long userId, Long bizOrderNo, Integer amount) {
         if (userId == null || bizOrderNo == null) {
@@ -169,6 +190,35 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         if (!deducted) {
             throw new BizException("用户不存在或余额不足");
         }
+    }
+
+    @Override
+    public List<UserBriefDTO> queryBriefByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        List<Long> distinctIds = ids.stream().filter(Objects::nonNull).distinct().toList();
+        if (distinctIds.isEmpty()) {
+            return List.of();
+        }
+        // 超限截断而不是抛 400：这道上限防的是调用方把整表 id 灌进来，
+        // 属于保护自己的读放大，不是业务校验。为此让上游整页请求失败（列表直接 500）
+        // 代价远大于少几个昵称——截断只影响展示，报错影响可用性。
+        if (distinctIds.size() > MAX_BRIEF_QUERY) {
+            log.warn("批量查询用户信息超过上限，已截断：请求 {} 个，只处理前 {} 个",
+                    distinctIds.size(), MAX_BRIEF_QUERY);
+            distinctIds = distinctIds.subList(0, MAX_BRIEF_QUERY);
+        }
+        return listByIds(distinctIds).stream().map(user -> {
+            // 逐字段赋值而不是 BeanUtils 整体拷贝：DTO 里没有 password，
+            // 从结构上保证密码哈希永远不会被别的服务拿到
+            UserBriefDTO brief = new UserBriefDTO();
+            brief.setId(user.getId());
+            brief.setUsername(user.getUsername());
+            brief.setNickname(user.getNickname());
+            brief.setAvatarUrl(user.getAvatar());
+            return brief;
+        }).toList();
     }
 }
 

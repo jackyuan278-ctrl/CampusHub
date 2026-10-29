@@ -13,6 +13,8 @@
     <description>CampusHub 问答、评论、点赞、关注与标签服务</description>
     <dependencies>
         <dependency><groupId>com.alibaba.cloud</groupId><artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId></dependency>
+        <dependency><groupId>org.springframework.cloud</groupId><artifactId>spring-cloud-starter-openfeign</artifactId></dependency>
+        <dependency><groupId>org.springframework.cloud</groupId><artifactId>spring-cloud-starter-loadbalancer</artifactId></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-validation</artifactId></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-redis</artifactId></dependency>
@@ -20,6 +22,8 @@
         <dependency><groupId>com.baomidou</groupId><artifactId>mybatis-plus-jsqlparser</artifactId></dependency>
         <dependency><groupId>com.mysql</groupId><artifactId>mysql-connector-j</artifactId><scope>runtime</scope></dependency>
         <dependency><groupId>com.campushub</groupId><artifactId>campus-common</artifactId><version>${project.version}</version></dependency>
+        <!-- 作者信息不再读本地 tb_user，改调 UserClient；DTO 与客户端统一定义在 campus-api -->
+        <dependency><groupId>com.campushub</groupId><artifactId>campus-api</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>cn.hutool</groupId><artifactId>hutool-all</artifactId></dependency>
         <dependency><groupId>org.projectlombok</groupId><artifactId>lombok</artifactId><optional>true</optional></dependency>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>

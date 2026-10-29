@@ -36,9 +36,7 @@
 
         <el-dropdown v-if="auth.isLoggedIn" trigger="click" placement="bottom-end" @command="handleCommand">
           <button class="profile-button" type="button">
-            <el-avatar :size="30" :src="auth.user?.avatar || undefined" class="avatar-sm">
-              {{ auth.displayName.slice(0, 1) }}
-            </el-avatar>
+            <el-avatar :size="30" :src="auth.user?.avatar || defaultAvatar" class="avatar-sm" />
             <span class="profile-name">{{ auth.displayName }}</span>
             <el-icon><ArrowDown /></el-icon>
           </button>
@@ -66,6 +64,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
+import defaultAvatar from '@/assets/avatar-default.svg'
 
 const route = useRoute()
 const router = useRouter()

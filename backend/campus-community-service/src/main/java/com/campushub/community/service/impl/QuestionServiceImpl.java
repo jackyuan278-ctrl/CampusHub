@@ -9,9 +9,11 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.campushub.api.dto.UserBriefDTO;
 import com.campushub.common.BizException;
 import com.campushub.common.constant.LikeTarget;
 import com.campushub.common.constant.RedisKeys;
+import com.campushub.community.client.UserLookup;
 import com.campushub.community.domain.dto.PageDTO;
 import com.campushub.community.domain.dto.QuestionFormDTO;
 import com.campushub.community.domain.dto.QuestionPageQuery;
@@ -20,7 +22,6 @@ import com.campushub.community.mapper.LikeMapper;
 import com.campushub.community.mapper.QuestionMapper;
 import com.campushub.community.mapper.QuestionTagMapper;
 import com.campushub.community.mapper.TagMapper;
-import com.campushub.community.mapper.UserMapper;
 import com.campushub.community.service.IQuestionService;
 import com.campushub.community.domain.vo.QuestionVO;
 import lombok.RequiredArgsConstructor;
@@ -37,14 +38,14 @@ import java.util.stream.Collectors;
 
 /**
  * 实现留白：核心业务由你实现（IQuestionService 的 javadoc 即契约）。
- * 依赖已注入：baseMapper（QuestionMapper）/ userMapper / questionTagMapper / tagMapper / likeMapper
- * / stringRedisTemplate（Redis）/ objectMapper（缓存 JSON 序列化）
+ * 依赖已注入：baseMapper（QuestionMapper）/ userLookup（作者信息，Feign 调用户服务）
+ * / questionTagMapper / tagMapper / likeMapper / stringRedisTemplate（Redis）
  */
 @Service
 @RequiredArgsConstructor
 public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> implements IQuestionService {
 
-    private final UserMapper userMapper;
+    private final UserLookup userLookup;
     private final QuestionTagMapper questionTagMapper;
     private final TagMapper tagMapper;
     private final LikeMapper likeMapper;
@@ -123,10 +124,9 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         if (records.isEmpty()) {
             return new PageDTO<>(page.getTotal(), List.of());
         }
-        // ④ 批量补作者：本页 distinct 作者 1 次 SELECT
+        // ④ 批量补作者：本页 distinct 作者 1 次 Feign 调用（查不到时返回空 Map，昵称走兜底）
         List<Long> authorIds = records.stream().map(Question::getUserId).distinct().toList();
-        Map<Long, User> userMap = userMapper.selectBatchIds(authorIds).stream()
-                .collect(Collectors.toMap(User::getId, u -> u));
+        Map<Long, UserBriefDTO> userMap = userLookup.findByIds(authorIds);
         // ⑤ 批量补标签：关联表 1 次 + 标签表 1 次，防 N+1
         List<QuestionTag> relations = questionTagMapper.selectList(
                 Wrappers.<QuestionTag>lambdaQuery()
@@ -150,7 +150,7 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         List<QuestionVO> voList = new ArrayList<>(records.size());
         for (Question question : records) {
             QuestionVO vo = BeanUtil.copyProperties(question, QuestionVO.class);
-            User author = userMap.get(question.getUserId());
+            UserBriefDTO author = userMap.get(question.getUserId());
             if (author != null) {
                 vo.setAuthorNickname(author.getNickname());
                 vo.setAuthorAvatar(author.getAvatarUrl());
@@ -194,7 +194,9 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
                 throw new BizException("问题不存在");
             }
             vo = BeanUtil.copyProperties(question, QuestionVO.class);
-            User author = userMapper.selectById(question.getUserId());
+            // 单个作者也走批量接口：少一个分支，多一跳网络对详情页可以接受
+            UserBriefDTO author = userLookup.findByIds(Collections.singletonList(question.getUserId()))
+                    .get(question.getUserId());
             if (author != null) {
                 vo.setAuthorNickname(author.getNickname());
                 vo.setAuthorAvatar(author.getAvatarUrl());
@@ -323,8 +325,7 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
             return List.of();
         }
         List<Long> authorIds = questions.stream().map(Question::getUserId).filter(Objects::nonNull).distinct().toList();
-        Map<Long, User> userMap = authorIds.isEmpty() ? Map.of()
-                : userMapper.selectBatchIds(authorIds).stream().collect(Collectors.toMap(User::getId, u -> u));
+        Map<Long, UserBriefDTO> userMap = userLookup.findByIds(authorIds);
         List<Long> questionIds = questions.stream().map(Question::getId).toList();
         List<QuestionTag> relations = questionTagMapper.selectList(
                 Wrappers.<QuestionTag>lambdaQuery().in(QuestionTag::getQuestionId, questionIds));
@@ -341,7 +342,7 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         List<QuestionVO> list = new ArrayList<>(questions.size());
         for (Question question : questions) {
             QuestionVO vo = BeanUtil.copyProperties(question, QuestionVO.class);
-            User author = userMap.get(question.getUserId());
+            UserBriefDTO author = userMap.get(question.getUserId());
             if (author != null) {
                 vo.setAuthorNickname(author.getNickname());
                 vo.setAuthorAvatar(author.getAvatarUrl());

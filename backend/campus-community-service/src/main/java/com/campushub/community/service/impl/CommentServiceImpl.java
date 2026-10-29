@@ -2,16 +2,16 @@ package com.campushub.community.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.campushub.api.dto.UserBriefDTO;
 import com.campushub.common.BizException;
 import com.campushub.common.constant.RedisKeys;
+import com.campushub.community.client.UserLookup;
 import com.campushub.community.domain.dto.CommentFormDTO;
 import com.campushub.community.domain.po.Answer;
 import com.campushub.community.domain.po.Question;
-import com.campushub.community.domain.po.User;
 import com.campushub.community.mapper.AnswerMapper;
 import com.campushub.community.mapper.CommentMapper;
 import com.campushub.community.mapper.QuestionMapper;
-import com.campushub.community.mapper.UserMapper;
 import com.campushub.community.domain.po.Comment;
 import com.campushub.community.service.ICommentService;
 import com.campushub.community.domain.vo.CommentVO;
@@ -25,7 +25,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * 实现留白：核心业务由你实现（ICommentService 的 javadoc 即契约）。
@@ -36,7 +35,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
 
     private final AnswerMapper answerMapper;
     private final QuestionMapper questionMapper;
-    private final UserMapper userMapper;
+    private final UserLookup userLookup;
     private final StringRedisTemplate stringRedisTemplate;
 
     @Override
@@ -62,16 +61,14 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         if (list == null || list.isEmpty()) {
             return List.of();
         }
-        List<Long> idList = new ArrayList<>();
-        for (Comment comment : list) {
-            Long userId = comment.getUserId();
-            idList.add(userId);
-        }
+        // 评论区常常只有两三个作者，但 id 会重复出现，交给 UserLookup 去重
+        List<Long> idList = list.stream().map(Comment::getUserId).toList();
         List<CommentVO> commentVOS  = new ArrayList<>();
-        Map<Long, User> userMap = userMapper.selectByIds(idList).stream().collect(Collectors.toMap(User::getId, user -> user));
+        // 作者信息查不到时返回空 Map：评论内容照常返回，昵称留空由前端兜底
+        Map<Long, UserBriefDTO> userMap = userLookup.findByIds(idList);
         for (Comment comment : list) {
             Long userId = comment.getUserId();
-            User user = userMap.get(userId);
+            UserBriefDTO user = userMap.get(userId);
             CommentVO commentVO = new CommentVO();
             BeanUtils.copyProperties(comment,commentVO);
             if (user != null) {

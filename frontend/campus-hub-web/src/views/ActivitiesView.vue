@@ -91,7 +91,7 @@
           </el-form-item>
         </div>
         <el-form-item label="封面图（可选）">
-          <el-input v-model="form.coverUrl" placeholder="图片地址，留空则使用默认封面" />
+          <ImageUploader v-model="form.coverUrl" :upload="activityApi.uploadCover" tip="上传活动封面" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -112,6 +112,7 @@ import { rememberPublishedActivity } from '@/utils/mine'
 import { toDateTimeValue } from '@/utils/format'
 import SectionHeading from '@/components/SectionHeading.vue'
 import ActivityRow from '@/components/ActivityRow.vue'
+import ImageUploader from '@/components/ImageUploader.vue'
 import StatePanel from '@/components/StatePanel.vue'
 import PagerBar from '@/components/PagerBar.vue'
 

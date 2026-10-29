@@ -37,6 +37,8 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
      */
     private static final List<String> INTERNAL_DENY = List.of(
             "/api/users/*/balance/deduct",
+            // 批量查用户只给服务间用：公网放行等于开放用户枚举
+            "/api/users/batch",
             "/api/items/stock/deduct",
             "/api/items/stock/restore"
     );

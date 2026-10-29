@@ -7,7 +7,10 @@ import com.campushub.user.domain.dto.RegisterFormDTO;
 import com.campushub.user.domain.dto.UpdateUserDTO;
 import com.campushub.user.domain.po.User;
 import com.campushub.user.domain.vo.UserLoginVO;
+import com.campushub.api.dto.UserBriefDTO;
 import com.campushub.user.domain.vo.UserVO;
+
+import java.util.List;
 
 public interface IUserService extends IService<User> {
 
@@ -21,8 +24,17 @@ public interface IUserService extends IService<User> {
 
     void updateMe(UpdateUserDTO updateUserDTO);
 
+    /** 只更新头像地址：上传成功后由 controller 调用，避免和资料表单的校验互相牵连。 */
+    void updateAvatar(String avatarUrl);
+
     /** 支付服务扣减余额；bizOrderNo 是幂等键，同一订单只能扣款一次。 */
     void deductBalance(Long userId, Long bizOrderNo, Integer amount);
+
+    /**
+     * 批量查询用户展示信息，供其他服务拼列表时补昵称/头像。
+     * 入参会去重、过滤 null 并截断到上限；用户不存在不会报错，只是结果里少几个人。
+     */
+    List<UserBriefDTO> queryBriefByIds(List<Long> ids);
 }
 
 

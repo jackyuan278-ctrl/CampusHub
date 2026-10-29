@@ -3,6 +3,7 @@ package com.campushub.secondhand.controller;
 import com.campushub.api.dto.OrderDetailDTO;
 import com.campushub.common.Result;
 import com.campushub.common.domain.PageDTO;
+import com.campushub.common.utils.OssUtil;
 import com.campushub.secondhand.domain.dto.ItemPublishDTO;
 import com.campushub.secondhand.domain.query.ItemPageQuery;
 import com.campushub.secondhand.domain.vo.ItemVO;
@@ -15,7 +16,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -25,6 +28,7 @@ import java.util.List;
 public class ItemController {
 
     private final IItemService itemService;
+    private final OssUtil ossUtil;
 
     /** 免鉴权（网关白名单：GET /api/items/**） */
     @GetMapping
@@ -51,6 +55,15 @@ public class ItemController {
     @PostMapping
     public Result<Long> publish(@RequestBody @Validated ItemPublishDTO dto) {
         return Result.success(itemService.publish(dto));
+    }
+
+    /**
+     * 上传商品图：需登录（白名单只放行 GET /api/items/**）。
+     * 返回可直接放进 item.image 的地址，不落库。
+     */
+    @PostMapping("/images")
+    public Result<String> uploadImage(@RequestParam("file") MultipartFile file) {
+        return Result.success(ossUtil.upload(file));
     }
 
     /** 内部接口：交易服务下单预扣（Feign 直连 item-service，不经网关） */

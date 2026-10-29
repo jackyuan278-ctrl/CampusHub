@@ -6,6 +6,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @Slf4j
 @RestControllerAdvice
@@ -21,6 +22,16 @@ public class GlobalExceptionHandler {
         FieldError fieldError = e.getBindingResult().getFieldError();
         String msg = fieldError == null ? "参数错误" : fieldError.getDefaultMessage();
         return Result.error(400, msg);
+    }
+
+    /**
+     * 上传文件超过 spring.servlet.multipart 的限制。
+     * 这个异常不是 ErrorResponse，不单独处理会被兜底成「系统繁忙」，让用户以为是服务挂了。
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public Result<Void> handleUploadTooLarge(MaxUploadSizeExceededException e) {
+        log.warn("上传文件超过限制：{}", e.getMessage());
+        return Result.error(400, "图片过大，请压缩后再上传");
     }
 
     /**

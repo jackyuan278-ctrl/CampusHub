@@ -3,13 +3,14 @@ package com.campushub.community.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.campushub.api.dto.UserBriefDTO;
 import com.campushub.common.BizException;
 import com.campushub.common.constant.LikeTarget;
 import com.campushub.common.constant.RedisKeys;
+import com.campushub.community.client.UserLookup;
 import com.campushub.community.domain.dto.AnswerFormDTO;
 import com.campushub.community.domain.po.LikeRecord;
 import com.campushub.community.domain.po.Question;
-import com.campushub.community.domain.po.User;
 import com.campushub.community.mapper.*;
 import com.campushub.community.domain.po.Answer;
 import com.campushub.community.service.IAnswerService;
@@ -25,7 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * 实现留白：核心业务由你实现（IAnswerService 的 javadoc 即契约）。
@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> implements IAnswerService {
 
     private final QuestionMapper questionMapper;
-    private final UserMapper userMapper;
+    private final UserLookup userLookup;
     private final LikeMapper likeMapper;
     private final StringRedisTemplate stringRedisTemplate;
 
@@ -86,11 +86,12 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
             members = likedIds == null ? Set.of() : likedIds;
         }
         List<Long> authorIds = list.stream().map(Answer::getUserId).distinct().toList();
-        Map<Long, User> userMap = userMapper.selectByIds(authorIds).stream()
-                .collect(Collectors.toMap(User::getId, user -> user));
+        // 作者信息查不到时返回空 Map，下面的 null 判断让昵称/头像留空由前端兜底，
+        // 不能因为用户服务抖动把整页回答打挂
+        Map<Long, UserBriefDTO> userMap = userLookup.findByIds(authorIds);
         for (Answer answer:list) {
             Long authorId = answer.getUserId();
-            User author = userMap.get(authorId);
+            UserBriefDTO author = userMap.get(authorId);
             AnswerVO answerVO = BeanUtil.copyProperties(answer, AnswerVO.class);
             if (author != null) {
                 answerVO.setAuthorAvatar(author.getAvatarUrl());
