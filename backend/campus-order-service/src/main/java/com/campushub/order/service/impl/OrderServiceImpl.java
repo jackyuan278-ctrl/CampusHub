@@ -47,6 +47,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     private static final int PAYMENT_TYPE_UNSET = 0;
     /** 商品快照缺少卖家时的兜底值，避免 NOT NULL 约束直接失败 */
     private static final Long NO_SELLER_ID = 0L;
+    /**
+     * 单笔订单金额上限（单位：分）= 10 万元。
+     * 远低于 total_fee INT 上限（约 2147 万元），既拦住异常大额订单，也保证 (int) 强转永不截断。
+     */
+    private static final long MAX_ORDER_FEE = 10_000_000L;
 
     private final ItemClient  itemClient;
     private final IOrderDetailService orderDetailService;
@@ -65,7 +70,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             throw new BizException(400,"商品信息为空");
         }
         //      3. 调 ItemClient.deductStock 预扣库存
-        int totalFee = 0;
+        // 用 long 累加：int 相乘会静默溢出成负数，让订单金额变成一折甚至负数
+        long totalFee = 0;
         List<OrderDetailDTO> orderDetailDTOList = new ArrayList<>();
         // itemId -> 商品快照，写订单明细时复用，避免为了拿卖家 ID 再查一次商品服务
         Map<Long, ItemDTO> itemSnapshots = new HashMap<>();
@@ -97,7 +103,20 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             good.setImage(data.getImage());
             good.setSpec(data.getSpec());
             Integer unitPrice = data.getPrice();
-            totalFee += unitPrice * num;
+            if (unitPrice == null || unitPrice <= 0) {
+                // 价格为 0 或负数等于白送，必须在算钱之前拦住
+                throw new BizException(400, "商品价格异常");
+            }
+            try {
+                totalFee = Math.addExact(totalFee, Math.multiplyExact((long) unitPrice, (long) num));
+            } catch (ArithmeticException overflow) {
+                // multiplyExact / addExact 溢出即抛，不会像 * 和 += 那样静默变成负数
+                throw new BizException(400, "订单金额超限");
+            }
+        }
+        // 上限校验放在扣库存之前：超限直接拒单，不必再走库存补偿
+        if (totalFee <= 0 || totalFee > MAX_ORDER_FEE) {
+            throw new BizException(400, "订单金额超限");
         }
 
         Result<Void> voidResult = itemClient.deductStock(orderDetailDTOList);
@@ -112,7 +131,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             order.setOrderNo(BizNoGenerator.order());
             order.setOrderType(ORDER_TYPE_SECONDHAND);
             order.setUserId(userId);
-            order.setTotalFee(totalFee);
+            // 上方已校验 totalFee <= MAX_ORDER_FEE(1000 万分)，此处强转 int 不会截断，DB 列类型无需改动
+            order.setTotalFee((int) totalFee);
             // 显式置为待支付，不依赖数据库默认值：markPaySuccess / closeOrder 都按 status=1 做条件更新
             order.setStatus(ORDER_STATUS_UNPAID);
             order.setPaymentType(PAYMENT_TYPE_UNSET);
