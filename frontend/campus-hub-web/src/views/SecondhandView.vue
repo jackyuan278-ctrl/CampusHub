@@ -58,9 +58,21 @@
       class="panel-offset"
     />
 
-    <div v-if="!loading && items.length" class="load-more-row">
-      <el-button v-if="hasMore" round :loading="loadingMore" @click="loadMore">加载更多好物</el-button>
-      <span v-else>已经到底啦，共 {{ items.length }} 件</span>
+    <div v-if="!error && (items.length || page > 1)" class="pager-row">
+      <el-button round :disabled="page <= 1 || loading" @click="previous">上一页</el-button>
+      <template v-if="page <= MAX_OFFSET_PAGE">
+        <button
+          v-for="pageNumber in visiblePages"
+          :key="pageNumber"
+          type="button"
+          class="pager-number"
+          :class="{ 'is-active': pageNumber === page }"
+          :disabled="loading"
+          @click="goToPage(pageNumber)"
+        >{{ pageNumber }}</button>
+      </template>
+      <span v-else class="pager-current">第 {{ page }} 页</span>
+      <el-button round :disabled="!hasMore || loading" @click="next">下一页</el-button>
     </div>
 
     <el-dialog v-model="publishVisible" title="发布闲置" width="620px" destroy-on-close>
@@ -132,11 +144,14 @@ const categoryId = ref('')
 const sort = ref('')
 const total = ref(0)
 const loading = ref(false)
-const loadingMore = ref(false)
 const error = ref('')
 const hasMore = ref(false)
-const cursor = ref(null)
-const cursorSortValue = ref(null)
+const page = ref(1)
+/** 后端前 5 页支持 offset，第 6 页起必须走游标，与后端 MAX_OFFSET_PAGE 保持一致 */
+const MAX_OFFSET_PAGE = 5
+const visiblePages = ref([1])
+/** 游标栈：cursorStack[i] 是「第 MAX_OFFSET_PAGE+1+i 页」继续取数时用的游标（上一页末条） */
+const cursorStack = ref([])
 let searchTimer = null
 
 async function loadCategories() {
@@ -148,70 +163,96 @@ async function loadCategories() {
   }
 }
 
-/** 首次/筛选变化：走 page 分页（后端前 5 页支持 offset） */
-// 快速切换分类时会有多个请求在飞，只认最后一次的结果，避免旧响应覆盖新列表
+/** 游标里要带的排序值：只有价格排序需要，综合/默认排序只靠 id 递进 */
+function sortValueOf(item) {
+  return sort.value === 'priceAsc' || sort.value === 'priceDesc' ? item.price : null
+}
+
+/** 按当前页码取数：前 5 页走 offset，第 6 页起改走游标，避免深分页 LIMIT offset 全表扫 */
+// 快速翻页/切分类时会有多个请求在飞，只认最后一次的结果，避免旧响应覆盖新列表
 let reloadSeq = 0
 
-async function reload() {
+async function load() {
   const seq = ++reloadSeq
   loading.value = true
   error.value = ''
-  cursor.value = null
-  cursorSortValue.value = null
   try {
-    const data = await itemApi.page(
-      {
-        page: 1,
-        pageSize: PAGE_SIZE,
-        keyword: keyword.value.trim() || undefined,
-        categoryId: categoryId.value || undefined,
-        sort: sort.value || undefined
-      },
-      { silent: true }
-    )
+    const params = {
+      pageSize: PAGE_SIZE,
+      keyword: keyword.value.trim() || undefined,
+      categoryId: categoryId.value || undefined,
+      sort: sort.value || undefined
+    }
+    if (page.value <= MAX_OFFSET_PAGE) {
+      params.page = page.value
+    } else {
+      const cursor = cursorStack.value[page.value - MAX_OFFSET_PAGE - 1] || {}
+      params.cursorId = cursor.id
+      if (cursor.sortValue != null) {
+        params.cursorSortValue = cursor.sortValue
+      }
+    }
+    const data = await itemApi.page(params, { silent: true })
     if (seq !== reloadSeq) return
-    items.value = data?.list || []
-    total.value = Number(data?.total || items.value.length)
-    // page 模式不返回 hasMore，用「已加载数 < 总数」推断是否还能继续拉取
-    hasMore.value = items.value.length < total.value
+    const list = data?.list || []
+    items.value = list
+    if (data?.total != null) {
+      total.value = Number(data.total)
+    }
+    // offset 阶段后端不给 hasMore，用「本页末条序号 < 总数」推算；游标阶段直接用后端结果
+    hasMore.value = page.value <= MAX_OFFSET_PAGE
+      ? page.value * PAGE_SIZE < total.value
+      : Boolean(data?.hasMore)
+    // 把「下一页从哪继续」记下来，深页的上一页/下一页都靠它重放，不用重新算
+    if (page.value === MAX_OFFSET_PAGE && hasMore.value) {
+      const last = list[list.length - 1]
+      cursorStack.value[0] = last ? { id: last.id, sortValue: sortValueOf(last) } : null
+    } else if (page.value > MAX_OFFSET_PAGE && data?.nextCursor != null) {
+      cursorStack.value[page.value - MAX_OFFSET_PAGE] = {
+        id: data.nextCursor,
+        sortValue: data.nextCursorSortValue ?? null
+      }
+    }
+    if (page.value <= MAX_OFFSET_PAGE) {
+      const pageCount = Math.min(MAX_OFFSET_PAGE, Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
+      visiblePages.value = Array.from({ length: pageCount }, (_, index) => index + 1)
+    }
   } catch (err) {
     if (seq !== reloadSeq) return
     error.value = err.message || '请稍后重试'
     items.value = []
-    total.value = 0
   } finally {
     if (seq === reloadSeq) loading.value = false
   }
 }
 
-/** 滚动加载：第 2 页起改用游标分页，避免后端深分页限制 */
-async function loadMore() {
-  if (!items.value.length) return
-  const seq = reloadSeq
-  loadingMore.value = true
-  try {
-    const last = items.value[items.value.length - 1]
-    const params = {
-      pageSize: PAGE_SIZE,
-      keyword: keyword.value.trim() || undefined,
-      categoryId: categoryId.value || undefined,
-      sort: sort.value || undefined,
-      cursorId: cursor.value || last.id
-    }
-    if (sort.value) params.cursorSortValue = cursorSortValue.value ?? last.price
-    const data = await itemApi.page(params, { silent: true })
-    // 期间用户换了筛选条件，这批数据已经不属于当前列表
-    if (seq !== reloadSeq) return
-    const list = data?.list || []
-    items.value = [...items.value, ...list]
-    hasMore.value = Boolean(data?.hasMore)
-    cursor.value = data?.nextCursor || null
-    cursorSortValue.value = data?.nextCursorSortValue ?? null
-  } catch (err) {
-    if (seq === reloadSeq) ElMessage.error(err.message || '加载更多失败')
-  } finally {
-    loadingMore.value = false
-  }
+function goToPage(pageNumber) {
+  if (loading.value || pageNumber === page.value) return
+  if (pageNumber < 1 || pageNumber > MAX_OFFSET_PAGE) return
+  page.value = pageNumber
+  load()
+}
+
+function next() {
+  if (!hasMore.value || loading.value) return
+  page.value += 1
+  load()
+}
+
+function previous() {
+  if (page.value <= 1 || loading.value) return
+  page.value -= 1
+  load()
+}
+
+/** 筛选条件变化：回到第 1 页，游标栈整体作废 */
+function reload() {
+  page.value = 1
+  cursorStack.value = []
+  visiblePages.value = [1]
+  total.value = 0
+  hasMore.value = false
+  load()
 }
 
 function selectCategory(id) {
@@ -312,5 +353,57 @@ onBeforeUnmount(() => clearTimeout(searchTimer))
   .publish-row {
     grid-template-columns: 1fr;
   }
+}
+
+/* 分页器：前 5 页给页码，第 6 页起只保留上一页/下一页 + 当前页码 */
+.pager-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 28px 0 8px;
+}
+
+.pager-row .pager-number {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 10px;
+  background: var(--el-bg-color);
+  color: var(--el-text-color-regular);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.pager-row .pager-number:hover {
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
+}
+
+.pager-row .pager-number.is-active {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary);
+  color: #fff;
+  cursor: default;
+}
+
+/* 翻页请求在飞时禁止连点，但当前页不要跟着变灰 */
+.pager-row .pager-number:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.pager-row .pager-number.is-active:disabled {
+  opacity: 1;
+}
+
+.pager-row .pager-current {
+  min-width: 68px;
+  text-align: center;
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
 }
 </style>

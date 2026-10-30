@@ -29,7 +29,7 @@
       </div>
       <label class="search-shell compact">
         <el-icon><Search /></el-icon>
-        <input v-model="keyword" type="search" placeholder="搜索活动关键词（走 ES 检索）" />
+        <input v-model="keyword" type="search" placeholder="搜索活动关键词" />
         <button v-if="keyword" type="button" aria-label="清空搜索" @click="keyword = ''">
           <el-icon><CircleClose /></el-icon>
         </button>
@@ -38,7 +38,7 @@
 
     <p v-if="keyword" class="search-tip">
       <el-icon><Search /></el-icon>
-      正在通过 campus-activity-service 的全文检索查找「{{ keyword }}」
+      正在搜索「{{ keyword }}」
     </p>
 
     <StatePanel v-if="loading" type="loading" class="panel-offset" />
@@ -195,7 +195,7 @@ async function loadSearch() {
     activities.value = data?.list || []
     total.value = Number(data?.total || 0)
   } catch (err) {
-    error.value = err.message || '检索失败，请稍后重试'
+    error.value = err.message || '搜索失败，请稍后重试'
     activities.value = []
     total.value = 0
   } finally {

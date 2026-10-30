@@ -109,7 +109,9 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
         String sort = StrUtil.blankToDefault(query.getSort(), DEFAULT_SORT);
         switch (sort) {
             case SORT_SALES:
-                lq.orderByDesc(Item::getCreateTime).orderByAsc(Item::getId);
+                // 表里没有销量字段，sales 只是占位排序：按上架先后倒序（id 单调递增）。
+                // 不能按 create_time 排序——游标只有 id，时间序和 id 序不一致会漏数据。
+                lq.orderByDesc(Item::getId);
                 break;
             case SORT_PRICE_ASC:
                 lq.orderByAsc(Item::getPrice).orderByAsc(Item::getId);
@@ -118,14 +120,18 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
                 lq.orderByDesc(Item::getPrice).orderByAsc(Item::getId);
                 break;
             case DEFAULT_SORT:
-                lq.orderByAsc(Item::getId);
+                // 列表默认「最新在前」：id 单调递增，倒序即上架时间倒序。
+                // 选 id 而不是 create_time，是因为游标只有 id，两者同序才能保证 keyset 不漏不重。
+                lq.orderByDesc(Item::getId);
                 break;
             default:
                 throw new BizException(BizException.BAD_REQUEST_CODE, UNSUPPORTED_SORT_MESSAGE);
         }
 
         if (cursorMode) {
-            if (DEFAULT_SORT.equals(sort)) {
+            // 默认与 sales 都只按 id 递进，排序值必须为空，免得调用方传了却没被使用
+            boolean idOnlySort = DEFAULT_SORT.equals(sort) || SORT_SALES.equals(sort);
+            if (idOnlySort) {
                 if (query.getCursorSortValue() != null) {
                     throw new BizException(BizException.BAD_REQUEST_CODE, DEFAULT_SORT_CURSOR_MESSAGE);
                 }
@@ -142,7 +148,8 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
                             .or().eq(Item::getPrice, query.getCursorSortValue()).gt(Item::getId, query.getCursorId()));
                     break;
                 default:
-                    lq.gt(Item::getId, query.getCursorId());
+                    // 排序是 id DESC，游标取「比上一页末条更小」的 id
+                    lq.lt(Item::getId, query.getCursorId());
             }
         }
 
