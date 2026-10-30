@@ -1,6 +1,7 @@
 package com.campushub.secondhand.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.campushub.api.dto.ItemStatusDTO;
 import com.campushub.api.dto.OrderDetailDTO;
 import com.campushub.common.domain.PageDTO;
 import com.campushub.secondhand.domain.dto.ItemPublishDTO;
@@ -26,6 +27,9 @@ public interface IItemService extends IService<Item> {
 
     /** 超时关单回滚库存（Feign 直连） */
     void restoreStock(List<OrderDetailDTO> details);
+
+    /** 批量查商品状态与实时价（Feign 直连，购物车刷新用） */
+    List<ItemStatusDTO> queryStatusBatch(List<Long> ids);
 }
 
 

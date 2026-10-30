@@ -1,5 +1,6 @@
 package com.campushub.secondhand.controller;
 
+import com.campushub.api.dto.ItemStatusDTO;
 import com.campushub.api.dto.OrderDetailDTO;
 import com.campushub.common.Result;
 import com.campushub.common.domain.PageDTO;
@@ -78,6 +79,12 @@ public class ItemController {
     public Result<Void> restoreStock(@RequestBody List<OrderDetailDTO> details) {
         itemService.restoreStock(details);
         return Result.success();
+    }
+
+    /** 内部接口：批量查状态与实时价（购物车标出已售商品，网关已列入黑名单） */
+    @PostMapping("/batch/status")
+    public Result<List<ItemStatusDTO>> queryStatusBatch(@RequestBody List<Long> ids) {
+        return Result.success(itemService.queryStatusBatch(ids));
     }
 }
 

@@ -82,9 +82,12 @@ public class SignupServiceImpl extends ServiceImpl<SignupMapper, Signup> impleme
 
         // ③ 明细：与 ② 同一事务，失败自动回滚名额，不需要手工补偿
         try {
+            // 只允许把「已取消(3)」的记录恢复成已报名；已经是 1 或 2 的行不能动，
+            // 否则「匹配行数=1」会被当成更新成功，重复提交就会二次扣名额。
             boolean updated = lambdaUpdate()
                     .eq(Signup::getActivityId, activityId)
                     .eq(Signup::getUserId, userId)
+                    .eq(Signup::getStatus, 3)
                     .set(Signup::getStatus, 1)
                     .update();
             if (!updated) {

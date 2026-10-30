@@ -31,6 +31,7 @@ public class AddressServiceImpl extends ServiceImpl<AddressMapper, Address> impl
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void saveAddress(AddressDTO addressDTO) {
         Long userId = UserContext.getUser();
         Address address = BeanUtil.copyProperties(addressDTO, Address.class);

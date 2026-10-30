@@ -91,6 +91,7 @@
 
               <div class="checkout-total"><span>应付</span><strong>¥{{ money(order.totalFee) }}</strong></div>
               <el-button type="primary" round size="large" class="checkout-button" :loading="paying" @click="pay">立即支付</el-button>
+              <el-button text class="cancel-order" :loading="cancelling" @click="cancelOrder">取消订单</el-button>
               <p class="checkout-note"><el-icon><Lock /></el-icon>支付完成后请线下与卖家完成面交</p>
             </template>
 
@@ -110,7 +111,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { orderApi, payApi } from '@/api/order'
 import { useAuthStore } from '@/stores/auth'
 import { ORDER_STATUS, PAYMENT_TYPE, formatDate, money, statusMeta, toneOf } from '@/utils/format'
@@ -125,6 +126,7 @@ const loading = ref(true)
 const error = ref('')
 const payType = ref('balance')
 const paying = ref(false)
+const cancelling = ref(false)
 
 const status = computed(() => statusMeta(ORDER_STATUS, order.value?.status))
 const heroTip = computed(() => {
@@ -147,6 +149,28 @@ async function load() {
     error.value = err.message || '请稍后重试'
   } finally {
     loading.value = false
+  }
+}
+
+async function cancelOrder() {
+  try {
+    await ElMessageBox.confirm('取消后商品会回到货架，确定要取消吗？', '取消订单', {
+      confirmButtonText: '取消订单',
+      cancelButtonText: '再想想',
+      type: 'warning'
+    })
+  } catch {
+    return
+  }
+  cancelling.value = true
+  try {
+    await orderApi.cancel(order.value.id)
+    ElMessage.success('订单已取消')
+    await load()
+  } catch {
+    // 请求层已统一提示
+  } finally {
+    cancelling.value = false
   }
 }
 

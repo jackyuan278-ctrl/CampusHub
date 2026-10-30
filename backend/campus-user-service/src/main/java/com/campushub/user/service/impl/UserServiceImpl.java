@@ -193,6 +193,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void refundBalance(Long userId, Long payOrderId, Integer amount) {
+        if (userId == null || payOrderId == null) {
+            throw new BizException("用户或支付单信息不能为空");
+        }
+        if (amount == null || amount <= 0) {
+            throw new BizException("退款金额必须大于0");
+        }
+        // 只做加钱：重复调用会多退，幂等由支付服务「支付单 PAID -> REFUNDED 只能成功一次」保证
+        boolean refunded = lambdaUpdate()
+                .eq(User::getId, userId)
+                .setIncrBy(User::getBalance, amount)
+                .update();
+        if (!refunded) {
+            throw new BizException("用户不存在，退款失败");
+        }
+        log.info("余额退款成功 userId={} payOrderId={} amount={}", userId, payOrderId, amount);
+    }
+
+    @Override
     public List<UserBriefDTO> queryBriefByIds(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return List.of();

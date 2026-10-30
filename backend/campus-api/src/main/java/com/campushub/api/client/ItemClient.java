@@ -1,12 +1,14 @@
 package com.campushub.api.client;
 
 import com.campushub.api.dto.ItemDTO;
+import com.campushub.api.dto.ItemStatusDTO;
 import com.campushub.api.dto.OrderDetailDTO;
 import com.campushub.common.Result;
 import com.campushub.common.domain.PageDTO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -27,6 +29,10 @@ public interface ItemClient {
 
     @PutMapping("/stock/restore")
     Result<Void> restoreStock(@RequestBody List<OrderDetailDTO> details);
+
+    /** 批量查商品状态：购物车刷新时把「已售 / 已下架」标出来，只给服务间用（网关黑名单） */
+    @PostMapping("/batch/status")
+    Result<List<ItemStatusDTO>> queryItemStatus(@RequestBody List<Long> ids);
 }
 
 

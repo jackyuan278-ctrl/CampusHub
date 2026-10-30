@@ -63,3 +63,25 @@ cd C:\Users\Tom\Desktop\workdemo\CampusHub\frontend\campus-hub-web
 npm install
 npm run dev
 ```
+
+## 已知限制与设计取舍
+
+这份清单是有意留下的缺口，不是 bug，交接时请按「当前不支持」理解。
+
+**交易链路**
+- 商品状态只有「在售 / 已售」，没有中间态。`ItemStatus.RESERVED(2)` 是预留值，全链路没有代码写入，实际流程不会出现。
+- 结算时不做支付密码、不接第三方支付，只有余额与模拟扫码两条路。
+- 关单与支付的竞态由 `PayReconcileTask` 每分钟对账补偿：发现「支付单已付 + 订单已关闭」就把钱退回余额。退款前用 `PAID -> REFUNDED` 的条件更新抢占，保证只退一次；若退款调用本身失败，只记 error 日志等人工处理。
+- 销量字段未随支付累加，热榜权重按浏览量 + 点赞算。
+
+**社区**
+- 回答与评论列表一次返回全部（各限 200 条），没有分页。问题多了以后需要改成游标分页。
+- 点赞的正确性以 `tb_like_record` 唯一键为准，Redis 里的 likeSet 只用于渲染红心；Redis 写失败时红心可能不亮，但不影响点赞本身。
+- 关注列表在用户服务不可用时保留条目、昵称留空，不会整页消失。
+
+**已知技术债**
+- `PageQuery` 在 secondhand / community / order 各有一份副本，未收敛到 campus-api。
+- 月度签到一次请求会读 31 次 `GETBIT`，用户量上来后应改成 `BITFIELD` 一次取回。
+- outbox 的定时扫描是单机 Spring Task，多实例部署会重复投递（消费端幂等，可容忍），严格只发一次需要分布式调度。
+- RabbitMQ 未开启 publisher confirm，outbox 标 `published=1` 只代表消息已交给客户端，不代表 broker 已落盘。
+- 服务端口默认监听 `0.0.0.0`，下游信任 `user-info` 请求头。**部署时必须只对外暴露网关 8080**，其余端口仅内网可达。

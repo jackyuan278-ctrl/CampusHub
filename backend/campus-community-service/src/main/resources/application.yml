@@ -8,6 +8,13 @@ spring:
     nacos:
       discovery:
         server-addr: ${NACOS_ADDR:124.220.155.27:8848}
+    # 用户服务半死时，默认 60 秒读超时会把帖子列表一起拖死
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: 2000
+            read-timeout: 3000
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     # 连接值一律占位：真实 IP/密码走 application-dev.yml（已 gitignore）或环境变量

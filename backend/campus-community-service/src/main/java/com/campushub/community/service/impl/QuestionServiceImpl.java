@@ -25,6 +25,7 @@ import com.campushub.community.mapper.TagMapper;
 import com.campushub.community.service.IQuestionService;
 import com.campushub.community.domain.vo.QuestionVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -41,6 +42,7 @@ import java.util.stream.Collectors;
  * 依赖已注入：baseMapper（QuestionMapper）/ userLookup（作者信息，Feign 调用户服务）
  * / questionTagMapper / tagMapper / likeMapper / stringRedisTemplate（Redis）
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> implements IQuestionService {
@@ -376,12 +378,13 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
         return view + like * 3.0;
     }
 
+    /**
+     * 点赞的唯一判据是 tb_like_record 的唯一键，不是 Redis 里的 likeSet。
+     * 事务只保证「点赞记录」与「like_count」同生同死；Redis 全程只当加速用，失败只记 warn。
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void like(Long id, Long userId) {
-        Boolean exist = stringRedisTemplate.opsForSet().isMember(RedisKeys.likeSet(userId, LikeTarget.QUESTION), id.toString());
-        if (Boolean.TRUE.equals(exist)) {
-            throw new BizException(400,"请勿重复点赞");
-        }
         Question question = getById(id);
         if (question == null || question.getStatus() != 1) {
             throw new BizException(400,"请求错误");
@@ -397,29 +400,33 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
             throw new BizException(400, "请勿重复点赞");
         }
         lambdaUpdate().setSql("like_count = like_count + 1").eq(Question::getId, id).update();
-        stringRedisTemplate.opsForZSet().incrementScore(RedisKeys.HOT_QUESTIONS, id.toString(), 3);
-        stringRedisTemplate.opsForSet().add(RedisKeys.likeSet(userId, LikeTarget.QUESTION), id.toString());
-        // 热度变了，热榜快照必须失效，否则首页要等 5~11 分钟才看到排名变化
-        stringRedisTemplate.delete(RedisKeys.HOT_QUESTIONS_CACHE);
+        try {
+            stringRedisTemplate.opsForZSet().incrementScore(RedisKeys.HOT_QUESTIONS, id.toString(), 3);
+            stringRedisTemplate.opsForSet().add(RedisKeys.likeSet(userId, LikeTarget.QUESTION), id.toString());
+            // 热度变了，热榜快照必须失效，否则首页要等 5~11 分钟才看到排名变化
+            stringRedisTemplate.delete(RedisKeys.HOT_QUESTIONS_CACHE);
+        } catch (Exception e) {
+            log.warn("问题点赞的缓存更新失败，点赞本身已生效，questionId={} userId={}", id, userId, e);
+        }
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void unlike(Long id, Long userId) {
-        Boolean exist = stringRedisTemplate.opsForSet().isMember(RedisKeys.likeSet(userId, LikeTarget.QUESTION), id.toString());
-        if (!Boolean.TRUE.equals(exist)) {
-            return;
-        }
-
         int deleted = likeMapper.delete(Wrappers.<LikeRecord>lambdaQuery()
                     .eq(LikeRecord::getUserId, userId)
                     .eq(LikeRecord::getTargetId, id)
                     .eq(LikeRecord::getTargetType, LikeTarget.QUESTION));
-        if (deleted ==0) {
+        if (deleted == 0) {
                 return;}
         lambdaUpdate().setSql("like_count = like_count - 1").eq(Question::getId, id).gt(Question::getLikeCount, 0).update();
-        stringRedisTemplate.opsForZSet().incrementScore(RedisKeys.HOT_QUESTIONS, id.toString(), -3);
-        stringRedisTemplate.opsForSet().remove(RedisKeys.likeSet(userId, LikeTarget.QUESTION), id.toString());
-        stringRedisTemplate.delete(RedisKeys.HOT_QUESTIONS_CACHE);
+        try {
+            stringRedisTemplate.opsForZSet().incrementScore(RedisKeys.HOT_QUESTIONS, id.toString(), -3);
+            stringRedisTemplate.opsForSet().remove(RedisKeys.likeSet(userId, LikeTarget.QUESTION), id.toString());
+            stringRedisTemplate.delete(RedisKeys.HOT_QUESTIONS_CACHE);
+        } catch (Exception e) {
+            log.warn("取消问题点赞的缓存更新失败，取消本身已生效，questionId={} userId={}", id, userId, e);
+        }
     }
 }
 

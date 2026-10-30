@@ -37,10 +37,13 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
      */
     private static final List<String> INTERNAL_DENY = List.of(
             "/api/users/*/balance/deduct",
+            "/api/users/*/balance/refund",
             // 批量查用户只给服务间用：公网放行等于开放用户枚举
             "/api/users/batch",
             "/api/items/stock/deduct",
-            "/api/items/stock/restore"
+            "/api/items/stock/restore",
+            // 批量查商品状态只给购物车用，公网放行等于开放批量抓商品
+            "/api/items/batch/status"
     );
 
     private final JwtTool jwtTool;

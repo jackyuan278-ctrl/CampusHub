@@ -172,8 +172,8 @@
             <li v-for="user in follows" :key="user.id">
               <el-avatar :size="38" :src="user.avatarUrl || defaultAvatar" />
               <div>
-                <b>{{ user.nickname || user.username }}</b>
-                <small>{{ user.role === 1 ? '管理员' : '校园同学' }}</small>
+                <b>{{ user.nickname || user.username || '校园同学' }}</b>
+                <small>{{ user.nickname || user.username ? '校园同学' : '资料待同步' }}</small>
               </div>
               <el-button size="small" round @click="unfollow(user)">取消关注</el-button>
             </li>
@@ -329,8 +329,10 @@ async function onAvatarChange(event) {
   }
   uploadingAvatar.value = true
   try {
-    await userApi.uploadAvatar(file)
-    await auth.loadMe()
+    const url = await userApi.uploadAvatar(file)
+    // 只替换头像字段，不整体 loadMe：上面的 watch 会把还没保存的昵称、手机号一起冲掉
+    if (url) auth.cacheUser({ ...auth.user, avatar: url })
+    else await auth.loadMe()
     ElMessage.success('头像已更新')
   } catch {
     // 请求层已弹过提示（含「上传未启用」这类后端文案）

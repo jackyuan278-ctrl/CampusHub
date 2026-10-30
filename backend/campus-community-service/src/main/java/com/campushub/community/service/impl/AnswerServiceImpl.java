@@ -16,6 +16,7 @@ import com.campushub.community.domain.po.Answer;
 import com.campushub.community.service.IAnswerService;
 import com.campushub.community.domain.vo.AnswerVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ import java.util.Set;
 /**
  * 实现留白：核心业务由你实现（IAnswerService 的 javadoc 即契约）。
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> implements IAnswerService {
@@ -38,6 +40,9 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
     private final UserLookup userLookup;
     private final LikeMapper likeMapper;
     private final StringRedisTemplate stringRedisTemplate;
+
+    /** 回答列表暂无分页，用硬上限兜住单问题回答过多的情况 */
+    private static final int MAX_LIST_SIZE = 200;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -74,6 +79,8 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
         List<Answer> list = lambdaQuery().eq(Answer::getQuestionId, questionId).eq(Answer::getStatus,1)
                 .orderByDesc(Answer::getLikeCount)
                 .orderByDesc(Answer::getCreateTime)
+                // 暂无分页：给一个硬上限，避免单个问题回答过多时一次拉爆
+                .last("LIMIT " + MAX_LIST_SIZE)
                 .list();
         if (list.isEmpty()) {
             return List.of();
@@ -108,12 +115,13 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
         return answerVOList;
     }
 
+    /**
+     * 点赞的唯一判据是 tb_like_record 的唯一键，不是 Redis 里的 likeSet。
+     * 事务只保证「点赞记录」与「like_count」同生同死；Redis 全程只当加速用，失败只记 warn。
+     */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void like(Long id, Long userId) {
-        Boolean exist = stringRedisTemplate.opsForSet().isMember(RedisKeys.likeSet(userId, LikeTarget.ANSWER), id.toString());
-        if (Boolean.TRUE.equals(exist)) {
-            throw new BizException(400,"请勿重复点赞");
-        }
         Answer answer = getById(id);
         if (answer == null || answer.getStatus() != 1) {
             throw new BizException(400,"请求错误");
@@ -129,25 +137,39 @@ public class AnswerServiceImpl extends ServiceImpl<AnswerMapper, Answer> impleme
             throw new BizException(400, "请勿重复点赞");
         }
         lambdaUpdate().setSql("like_count = like_count + 1").eq(Answer::getId, id).update();
-        stringRedisTemplate.opsForSet().add(RedisKeys.likeSet(userId, LikeTarget.ANSWER), id.toString());
-
+        try {
+            stringRedisTemplate.opsForSet().add(RedisKeys.likeSet(userId, LikeTarget.ANSWER), id.toString());
+            // 回答的热度计入所属问题，热度变了热榜快照必须失效
+            if (answer.getQuestionId() != null) {
+                stringRedisTemplate.opsForZSet().incrementScore(RedisKeys.HOT_QUESTIONS, answer.getQuestionId().toString(), 1);
+                stringRedisTemplate.delete(RedisKeys.HOT_QUESTIONS_CACHE);
+            }
+        } catch (Exception e) {
+            log.warn("回答点赞的缓存更新失败，点赞本身已生效，answerId={} userId={}", id, userId, e);
+        }
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void unlike(Long id, Long userId) {
-        Boolean exist = stringRedisTemplate.opsForSet().isMember(RedisKeys.likeSet(userId, LikeTarget.ANSWER), id.toString());
-        if (!Boolean.TRUE.equals(exist)) {
-            return;
-        }
-
         int deleted = likeMapper.delete(Wrappers.<LikeRecord>lambdaQuery()
                 .eq(LikeRecord::getUserId, userId)
                 .eq(LikeRecord::getTargetId, id)
                 .eq(LikeRecord::getTargetType, LikeTarget.ANSWER));
-        if (deleted ==0) {
-            return;}
+        if (deleted == 0) {
+            return;
+        }
         lambdaUpdate().setSql("like_count = like_count - 1").eq(Answer::getId, id).gt(Answer::getLikeCount, 0).update();
-        stringRedisTemplate.opsForSet().remove(RedisKeys.likeSet(userId, LikeTarget.ANSWER), id.toString());
+        Answer answer = getById(id);
+        try {
+            stringRedisTemplate.opsForSet().remove(RedisKeys.likeSet(userId, LikeTarget.ANSWER), id.toString());
+            if (answer != null && answer.getQuestionId() != null) {
+                stringRedisTemplate.opsForZSet().incrementScore(RedisKeys.HOT_QUESTIONS, answer.getQuestionId().toString(), -1);
+                stringRedisTemplate.delete(RedisKeys.HOT_QUESTIONS_CACHE);
+            }
+        } catch (Exception e) {
+            log.warn("取消回答点赞的缓存更新失败，取消本身已生效，answerId={} userId={}", id, userId, e);
+        }
     }
 }
 

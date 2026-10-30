@@ -1,6 +1,7 @@
 package com.campushub.order.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.campushub.api.client.ItemClient;
 import com.campushub.api.constants.MqConstants;
@@ -8,6 +9,8 @@ import com.campushub.api.dto.ItemDTO;
 import com.campushub.api.dto.OrderDetailDTO;
 import com.campushub.common.BizException;
 import com.campushub.common.Result;
+import com.campushub.common.domain.PageDTO;
+import com.campushub.common.domain.PageQuery;
 import com.campushub.common.interceptor.UserContext;
 import com.campushub.common.utils.BizNoGenerator;
 import com.campushub.order.domain.dto.OrderFormDTO;
@@ -171,17 +174,30 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     }
 
     @Override
-    public List<OrderVO> queryMyOrders() {
+    public PageDTO<OrderVO> queryMyOrders(Integer page, Integer pageSize, Integer status) {
         Long userId = UserContext.getUser();
         if (userId == null) {
             throw new BizException(400,"请先登录");
         }
-        List<Order> list = lambdaQuery()
+        long current = (page == null || page < PageQuery.MIN_PAGE_SIZE) ? 1L : page;
+        long size = (pageSize == null || pageSize < PageQuery.MIN_PAGE_SIZE)
+                ? PageQuery.DEFAULT_PAGE_SIZE
+                : Math.min(pageSize, PageQuery.MAX_PAGE_SIZE);
+        Page<Order> result = lambdaQuery()
                 .eq(Order::getUserId, userId)
+                // 状态筛选下推到 SQL：前端分页后不能再靠内存过滤
+                .eq(status != null, Order::getStatus, status)
                 .orderByDesc(Order::getCreateTime)
-                .list();
+                // create_time 可能同秒，补 id 保证翻页不重不漏
+                .orderByDesc(Order::getId)
+                .page(new Page<>(current, size));
+        List<Order> list = result.getRecords();
+        PageDTO<OrderVO> pageDTO = new PageDTO<>();
+        pageDTO.setTotal(result.getTotal());
         if (list.isEmpty()) {
-            return List.of();
+            pageDTO.setList(List.of());
+            pageDTO.setHasMore(false);
+            return pageDTO;
         }
         List<Long> orderIds = list.stream().map(Order::getId).collect(Collectors.toList());
         Map<Long, List<OrderDetail>> detailMap = orderDetailService.lambdaQuery()
@@ -202,7 +218,26 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             orderVO.setGoods(orderGoodsVOList);
             orderVOList.add(orderVO);
         }
-        return orderVOList;
+        pageDTO.setList(orderVOList);
+        pageDTO.setHasMore(current * size < result.getTotal());
+        return pageDTO;
+    }
+
+    @Override
+    public void cancelOrder(Long id) {
+        Long userId = UserContext.getUser();
+        if (userId == null) {
+            throw new BizException(400,"请先登录");
+        }
+        Order order = lambdaQuery().eq(Order::getId, id).eq(Order::getUserId, userId).one();
+        if (order == null) {
+            throw new BizException(400,"订单不存在");
+        }
+        if (!Integer.valueOf(ORDER_STATUS_UNPAID).equals(order.getStatus())) {
+            throw new BizException(400,"只有待支付的订单可以取消");
+        }
+        // 复用关单：条件更新带 status=1，与支付成功的竞态由这条 SQL 裁决，只有一方能生效
+        closeOrder(id);
     }
 
     @Override

@@ -3,9 +3,12 @@ package com.campushub.common;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.ErrorResponse;
 import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @Slf4j
@@ -32,6 +35,19 @@ public class GlobalExceptionHandler {
     public Result<Void> handleUploadTooLarge(MaxUploadSizeExceededException e) {
         log.warn("上传文件超过限制：{}", e.getMessage());
         return Result.error(400, "图片过大，请压缩后再上传");
+    }
+
+    /**
+     * 路径/查询参数类型不对（例如 /orders/abc 里 id 要 Long），
+     * 属于请求方写错，必须回 400，不能让兜底处理器报成「系统繁忙」。
+     * 请求体不是合法 JSON 同样归到这里。
+     */
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class,
+            MissingServletRequestParameterException.class,
+            HttpMessageNotReadableException.class})
+    public Result<Void> handleBadRequest(Exception e) {
+        log.warn("请求参数不合法：{}", e.getMessage());
+        return Result.error(400, "请求参数不合法，请检查后重试");
     }
 
     /**

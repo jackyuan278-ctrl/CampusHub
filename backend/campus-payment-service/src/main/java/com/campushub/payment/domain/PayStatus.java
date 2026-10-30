@@ -5,6 +5,8 @@ public final class PayStatus {
     public static final int UNPAID = 1;
     public static final int PAID = 2;
     public static final int PROCESSING = 3;
+    /** 已退款：订单在支付成功后又被超时关单，钱已退回余额 */
+    public static final int REFUNDED = 6;
 
     private PayStatus() {
     }

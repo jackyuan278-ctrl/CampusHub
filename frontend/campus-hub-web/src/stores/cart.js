@@ -11,6 +11,7 @@ export const useCartStore = defineStore('cart', () => {
   const items = ref([])
   const loading = ref(false)
   const ready = ref(false)
+  const loadError = ref('')
   const auth = useAuthStore()
 
   const count = computed(() => items.value.reduce((sum, line) => sum + (line.num || 0), 0))
@@ -20,6 +21,7 @@ export const useCartStore = defineStore('cart', () => {
   function reset() {
     items.value = []
     ready.value = false
+    loadError.value = ''
   }
 
   async function load(options = {}) {
@@ -32,10 +34,13 @@ export const useCartStore = defineStore('cart', () => {
       const data = await cartApi.list({ silent: true, ...options })
       items.value = Array.isArray(data) ? data : []
       ready.value = true
+      loadError.value = ''
       return items.value
-    } catch {
-      items.value = []
-      return []
+    } catch (error) {
+      // 失败时保留上一次的结果，并把错误交给页面渲染：
+      // 直接清空会让用户以为购物车被清光了
+      loadError.value = error?.message || '购物车加载失败'
+      return items.value
     } finally {
       loading.value = false
     }
@@ -63,5 +68,5 @@ export const useCartStore = defineStore('cart', () => {
     reset()
   }
 
-  return { items, loading, ready, count, totalFee, isEmpty, load, add, updateNum, remove, clear, reset }
+  return { items, loading, ready, loadError, count, totalFee, isEmpty, load, add, updateNum, remove, clear, reset }
 })

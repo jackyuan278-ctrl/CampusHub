@@ -20,6 +20,12 @@ public class CartItemVO {
     private String spec;
 
     private Integer num;
+
+    /**
+     * 商品当前状态：0下架 1在售 2预订 3已售。
+     * 不入 Redis 快照，每次读购物车时现查现填；查不到时留 null（服务降级，前端不标灰）
+     */
+    private Integer status;
 }
 
 

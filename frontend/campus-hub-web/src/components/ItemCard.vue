@@ -1,6 +1,6 @@
 <template>
   <article class="product-card" :class="{ 'is-sold-out': soldOut }">
-    <div class="product-cover" :class="tone" role="button" tabindex="0" @click="$emit('open', item)" @keyup.enter="$emit('open', item)">
+    <div class="product-cover" :class="tone" role="button" tabindex="0" @click="$emit('open', item)" @keyup.enter="$emit('open', item)" @keyup.space.prevent="$emit('open', item)">
       <img v-if="item.image" :src="item.image" :alt="item.name" loading="lazy" />
       <el-icon v-else :size="42"><component :is="iconOfCategory(item.categoryName)" /></el-icon>
       <span class="condition-pill">{{ soldOut ? '已售出' : (item.conditionDesc || '在售') }}</span>

@@ -11,6 +11,13 @@ spring:
     nacos:
       discovery:
         server-addr: ${NACOS_ADDR:124.220.155.27:8848}
+    # 商品服务半死时，默认 60 秒读超时会把加购/结算一起拖死
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: 2000
+            read-timeout: 3000
   data:
     redis:
       host: ${REDIS_HOST:124.220.155.27}

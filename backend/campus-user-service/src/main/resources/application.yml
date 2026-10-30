@@ -38,7 +38,7 @@ campus:
     token: ${INTERNAL_TOKEN:dev-internal-token}
     # 本服务对外提供的内部接口，只有带密钥的调用方放行
     # /users/batch 是社区服务补作者信息用的：Feign 直连不经网关，网关那条只挡公网伪造
-    protected-paths: /users/*/balance/deduct,/users/batch
+    protected-paths: /users/*/balance/deduct,/users/*/balance/refund,/users/batch
 logging:
   level:
     com.campushub: debug

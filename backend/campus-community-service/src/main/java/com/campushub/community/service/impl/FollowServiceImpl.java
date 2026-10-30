@@ -58,16 +58,16 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
         if (ids.isEmpty()) {
             return List.of();
         }
-        // 关注列表可能很长，超过批量上限的尾部用户查不到就从列表里消失（只剩展示影响），
-        // 这比让"我的关注"整页报错更划算
+        // 关注列表可能很长，超过批量上限的尾部用户查不到；
+        // 这时保留条目、把昵称头像留空交给前端兜底，不能让整页关注凭空消失
         Map<Long, UserBriefDTO> userMap = userLookup.findByIds(ids);
         List<UserVO> userVOS = new ArrayList<>(ids.size());
         for (Long id : ids) {
             UserBriefDTO user = userMap.get(id);
-            if (user != null) {
-                // UserVO.role 不再有值：权威库 tb_user 没有该列，前端也未使用关注列表里的 role
-                userVOS.add(BeanUtil.copyProperties(user, UserVO.class));
-            }
+            UserVO vo = user == null ? new UserVO() : BeanUtil.copyProperties(user, UserVO.class);
+            // 权威库 tb_user 没有 role 列，UserVO.role 不再有值，前端也不读
+            vo.setId(id);
+            userVOS.add(vo);
         }
         return userVOS;
     }

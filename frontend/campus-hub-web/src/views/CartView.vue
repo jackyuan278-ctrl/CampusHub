@@ -11,6 +11,15 @@
 
     <StatePanel v-if="cart.loading && !cart.ready" type="loading" class="panel-offset" />
     <StatePanel
+      v-else-if="cart.loadError"
+      type="error"
+      title="购物车没能加载出来"
+      :description="cart.loadError"
+      action-text="重新加载"
+      class="panel-offset"
+      @action="reload"
+    />
+    <StatePanel
       v-else-if="cart.isEmpty"
       type="empty"
       title="购物车还是空的"
@@ -27,15 +36,22 @@
           <span>共 {{ cart.count }} 件</span>
         </div>
 
-        <div v-for="line in cart.items" :key="line.itemId" class="cart-line">
-          <el-checkbox :model-value="selected.includes(line.itemId)" @change="(checked) => toggleOne(line.itemId, checked)" />
+        <div v-for="line in cart.items" :key="line.itemId" class="cart-line" :class="{ 'is-unbuyable': !isBuyable(line) }">
+          <el-checkbox
+            :model-value="selected.includes(line.itemId)"
+            :disabled="!isBuyable(line)"
+            @change="(checked) => toggleOne(line.itemId, checked)"
+          />
           <div class="cart-thumb" :class="toneOf(line.itemId)">
             <img v-if="line.image" :src="line.image" :alt="line.name" />
             <el-icon v-else :size="26"><Goods /></el-icon>
           </div>
           <div class="cart-line-info">
             <h3 @click="router.push(`/secondhand/${line.itemId}`)">{{ line.name }}</h3>
-            <p>{{ line.spec || '校内面交 · 当面验货' }}</p>
+            <p>
+              <span v-if="!isBuyable(line)" class="soft-tag is-warn">{{ statusText(line) }}</span>
+              <span v-else>{{ line.spec || '校内面交 · 当面验货' }}</span>
+            </p>
           </div>
           <span class="line-price">¥{{ money(line.price) }}</span>
           <span class="line-qty">×{{ line.num }}</span>
@@ -76,20 +92,34 @@ const router = useRouter()
 const cart = useCartStore()
 const selected = ref([])
 
-const allSelected = computed(() => cart.items.length > 0 && selected.value.length === cart.items.length)
-const partSelected = computed(() => selected.value.length > 0 && selected.value.length < cart.items.length)
+const buyableIds = computed(() => cart.items.filter((line) => isBuyable(line)).map((line) => line.itemId))
+const allSelected = computed(() => buyableIds.value.length > 0 && selected.value.length === buyableIds.value.length)
+const partSelected = computed(() => selected.value.length > 0 && selected.value.length < buyableIds.value.length)
 const chosenLines = computed(() => cart.items.filter((line) => selected.value.includes(line.itemId)))
 const selectedCount = computed(() => chosenLines.value.reduce((sum, line) => sum + line.num, 0))
 const selectedTotal = computed(() => chosenLines.value.reduce((sum, line) => sum + line.price * line.num, 0))
 
+/** status 为 null 表示后端没查成（降级），按可购买处理，结算时后端还会再拦一次 */
+function isBuyable(line) {
+  return line.status === null || line.status === undefined || line.status === 1
+}
+
+function statusText(line) {
+  if (line.status === 3) return '已售出'
+  if (line.status === 0) return '已下架'
+  if (line.status === 2) return '已被预订'
+  return '暂不可购买'
+}
+
 function syncSelection() {
-  const ids = cart.items.map((line) => line.itemId)
+  // 只默认勾选还能买的，已售/下架的不参与结算
+  const ids = cart.items.filter(isBuyable).map((line) => line.itemId)
   selected.value = selected.value.filter((id) => ids.includes(id))
   if (!selected.value.length && ids.length) selected.value = ids
 }
 
 function toggleAll(checked) {
-  selected.value = checked ? cart.items.map((line) => line.itemId) : []
+  selected.value = checked ? cart.items.filter(isBuyable).map((line) => line.itemId) : []
 }
 
 function toggleOne(itemId, checked) {
@@ -138,6 +168,11 @@ function goCheckout() {
   if (!selected.value.length) return ElMessage.warning('请先选择要结算的商品')
   sessionStorage.setItem(CHOSEN_KEY, JSON.stringify(selected.value))
   router.push('/checkout')
+}
+
+async function reload() {
+  await cart.load()
+  syncSelection()
 }
 
 watch(() => cart.items, syncSelection, { deep: true })

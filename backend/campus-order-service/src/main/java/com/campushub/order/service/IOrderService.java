@@ -1,6 +1,7 @@
 package com.campushub.order.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.campushub.common.domain.PageDTO;
 import com.campushub.order.domain.dto.OrderFormDTO;
 import com.campushub.order.domain.po.Order;
 import com.campushub.order.domain.vo.OrderVO;
@@ -11,9 +12,13 @@ public interface IOrderService extends IService<Order> {
 
     OrderVO createOrder(OrderFormDTO orderFormDTO);
 
-    List<OrderVO> queryMyOrders();
+    /** 分页查我的订单（按创建时间倒序），status 为 null 表示全部 */
+    PageDTO<OrderVO> queryMyOrders(Integer page, Integer pageSize, Integer status);
 
     OrderVO queryOrderById(Long id);
+
+    /** 用户主动取消：只有待支付的订单能取消，复用关单逻辑回滚库存 */
+    void cancelOrder(Long id);
 
     /** 支付成功回调（MQ pay.success 监听器调用）：订单 1 -> 2，写 pay_time */
     void markPaySuccess(Long orderId);

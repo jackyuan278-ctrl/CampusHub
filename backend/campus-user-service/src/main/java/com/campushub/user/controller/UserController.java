@@ -79,6 +79,15 @@ public class UserController {
         return Result.success();
     }
 
+    /** 内部接口：支付服务回补余额（订单已关闭但钱已扣，Feign 直连） */
+    @PutMapping("/{id}/balance/refund")
+    public Result<Void> refundBalance(@PathVariable("id") Long userId,
+                                      @RequestParam("orderId") Long payOrderId,
+                                      @RequestParam("amount") Integer amount) {
+        userService.refundBalance(userId, payOrderId, amount);
+        return Result.success();
+    }
+
     /**
      * 内部接口：批量查用户昵称/头像（社区服务补作者信息用，Feign 直连不经网关）。
      * 放在 /users/batch 而不是 /users/{id}：后者会被网关当成普通资料查询，公网就能枚举用户。

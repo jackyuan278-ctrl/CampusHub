@@ -4,6 +4,7 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.json.JSONUtil;
 import com.campushub.api.client.ItemClient;
 import com.campushub.api.dto.ItemDTO;
+import com.campushub.api.dto.ItemStatusDTO;
 import com.campushub.cart.domain.dto.AddCartDTO;
 import com.campushub.cart.domain.dto.UpdateCartNumDTO;
 import com.campushub.cart.domain.vo.CartItemVO;
@@ -19,7 +20,9 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -59,7 +62,39 @@ public class CartServiceImpl implements ICartService {
                 log.error("购物车项JSON解析失败，userId:{}, json:{}", userId, jsonStr, e);
             }
         }
+        if (!list.isEmpty()) {
+            refreshStatus(list);
+        }
         return list;
+    }
+
+    /**
+     * 现查商品状态，让已售/下架的条目在购物车里就能标灰。
+     * 商品服务不可用时整体降级：状态留 null，前端不标灰，
+     * 结算时后端仍会拦住 —— 宁可少提示，也不要把整页购物车打挂。
+     */
+    private void refreshStatus(List<CartItemVO> list) {
+        try {
+            List<Long> ids = list.stream().map(CartItemVO::getItemId).filter(Objects::nonNull).toList();
+            if (ids.isEmpty()) {
+                return;
+            }
+            Result<List<ItemStatusDTO>> result = itemClient.queryItemStatus(ids);
+            List<ItemStatusDTO> data = result == null ? null : result.getData();
+            if (data == null) {
+                return;
+            }
+            Map<Long, Integer> statusMap = data.stream()
+                    .filter(dto -> dto.getId() != null)
+                    .collect(Collectors.toMap(ItemStatusDTO::getId,
+                            dto -> dto.getStatus() == null ? ITEM_STATUS_ON_SHELF : dto.getStatus()));
+            for (CartItemVO vo : list) {
+                // 查不到记录说明商品已被删除，等同于不可购买
+                vo.setStatus(statusMap.getOrDefault(vo.getItemId(), ITEM_STATUS_SOLD));
+            }
+        } catch (Exception e) {
+            log.warn("购物车刷新商品状态失败，本次不标记状态", e);
+        }
     }
 
     @Override

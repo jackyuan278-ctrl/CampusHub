@@ -28,7 +28,7 @@
         <p v-else class="comment-empty">还没有评论，来说两句～</p>
 
         <div class="comment-editor">
-          <el-input v-model="draft" size="small" maxlength="500" placeholder="友善评论，把问题说清楚" @keyup.enter="submit" />
+          <el-input v-model="draft" size="small" maxlength="500" placeholder="友善评论，把问题说清楚" @keydown.enter="onEnter" />
           <el-button size="small" type="primary" plain round :loading="submitting" @click="submit">发送</el-button>
         </div>
       </div>
@@ -69,6 +69,12 @@ async function toggleComments() {
   } finally {
     loading.value = false
   }
+}
+
+async function onEnter(e) {
+  // 用中文输入法选词时按回车，keydown 也会触发，此时不能当成「发送」
+  if (e.isComposing || e.keyCode === 229) return
+  await submit()
 }
 
 async function submit() {

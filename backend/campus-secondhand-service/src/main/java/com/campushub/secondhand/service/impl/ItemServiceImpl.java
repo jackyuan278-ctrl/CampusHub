@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.campushub.api.dto.ItemStatusDTO;
 import com.campushub.api.dto.OrderDetailDTO;
 import com.campushub.common.BizException;
 import com.campushub.common.domain.PageDTO;
@@ -339,6 +340,22 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
                 throw new BizException(BizException.BAD_REQUEST_CODE, QUANTITY_INVALID_MESSAGE);
             }
         }
+    }
+
+
+    @Override
+    public List<ItemStatusDTO> queryStatusBatch(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        // 调用方是购物车，正常不超过几十件；截断 + 去重挡住异常入参
+        List<Long> limited = ids.stream().filter(Objects::nonNull).distinct().limit(100).toList();
+        if (limited.isEmpty()) {
+            return List.of();
+        }
+        return baseMapper.selectByIds(limited).stream()
+                .map(item -> new ItemStatusDTO(item.getId(), item.getStatus(), item.getPrice()))
+                .toList();
     }
 
 

@@ -57,7 +57,11 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
 
     @Override
     public List<CommentVO> listByAnswerId(Long answerId) {
-        List<Comment> list = lambdaQuery().eq(Comment::getAnswerId, answerId).eq(Comment::getStatus,1).orderByAsc(Comment::getCreateTime).list();
+        List<Comment> list = lambdaQuery().eq(Comment::getAnswerId, answerId).eq(Comment::getStatus,1)
+                .orderByAsc(Comment::getCreateTime)
+                // 暂无分页：给一个硬上限，避免单条回答下评论过多时一次拉爆
+                .last("LIMIT 200")
+                .list();
         if (list == null || list.isEmpty()) {
             return List.of();
         }

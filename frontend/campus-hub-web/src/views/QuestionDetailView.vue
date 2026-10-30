@@ -80,6 +80,14 @@
           <div v-if="answers.length" class="answer-list">
             <AnswerItem v-for="answer in answers" :key="answer.id" :answer="answer" @like="toggleAnswerLike" />
           </div>
+          <StatePanel
+            v-else-if="answersError"
+            type="error"
+            title="回答没能加载出来"
+            :description="answersError"
+            action-text="重新加载"
+            @action="loadAnswers"
+          />
           <StatePanel v-else type="empty" title="还没有人回答" description="你的经验也许正是提问者需要的。" />
         </div>
 
@@ -126,27 +134,45 @@ const following = ref(false)
 const draft = ref('')
 const loading = ref(true)
 const error = ref('')
+const answersError = ref('')
 const submitting = ref(false)
 
 async function load() {
   loading.value = true
   error.value = ''
+  answersError.value = ''
   try {
-    const [detail, answerList] = await Promise.all([
-      questionApi.detail(route.params.id, { silent: true }),
-      answerApi.list(route.params.id, { silent: true })
-    ])
-    question.value = detail
-    answers.value = Array.isArray(answerList) ? answerList : []
-    if (!tags.value.length) {
-      const tagList = await tagApi.list({ silent: true }).catch(() => [])
-      tags.value = Array.isArray(tagList) ? tagList : []
-    }
-    await loadFollowState()
+    // 问题本身决定整页能不能渲染；回答、标签、关注都是附属信息，各自失败各自降级
+    question.value = await questionApi.detail(route.params.id, { silent: true })
   } catch (err) {
     error.value = err.message || '请稍后重试'
-  } finally {
     loading.value = false
+    return
+  }
+  loading.value = false
+  await Promise.all([
+    loadAnswers(),
+    tags.value.length ? Promise.resolve() : loadTags(),
+    loadFollowState()
+  ])
+}
+
+async function loadAnswers() {
+  answersError.value = ''
+  try {
+    const list = await answerApi.list(route.params.id, { silent: true })
+    answers.value = Array.isArray(list) ? list : []
+  } catch (err) {
+    answersError.value = err.message || '请稍后重试'
+  }
+}
+
+async function loadTags() {
+  try {
+    const tagList = await tagApi.list({ silent: true })
+    tags.value = Array.isArray(tagList) ? tagList : []
+  } catch {
+    tags.value = []
   }
 }
 

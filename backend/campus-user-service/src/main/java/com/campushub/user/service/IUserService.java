@@ -30,6 +30,9 @@ public interface IUserService extends IService<User> {
     /** 支付服务扣减余额；bizOrderNo 是幂等键，同一订单只能扣款一次。 */
     void deductBalance(Long userId, Long bizOrderNo, Integer amount);
 
+    /** 余额退款：支付成功但订单已被超时关单时回补，幂等由支付单状态流转保证 */
+    void refundBalance(Long userId, Long payOrderId, Integer amount);
+
     /**
      * 批量查询用户展示信息，供其他服务拼列表时补昵称/头像。
      * 入参会去重、过滤 null 并截断到上限；用户不存在不会报错，只是结果里少几个人。

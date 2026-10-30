@@ -27,6 +27,15 @@ public interface UserClient {
                                @RequestParam("amount") Integer amount);
 
     /**
+     * 余额退款：订单支付成功但随后被超时关单时回补余额。
+     * 幂等由调用方保证（支付单 PAID -> REFUNDED 只能成功一次），这里只做加钱。
+     */
+    @PutMapping("/{id}/balance/refund")
+    Result<Void> refundBalance(@PathVariable("id") Long userId,
+                               @RequestParam("orderId") Long orderId,
+                               @RequestParam("amount") Integer amount);
+
+    /**
      * 批量查作者信息。
      * 用 POST 而非 GET：id 列表拼进 query 会受 URL 长度限制，几十个 id 就可能被中间件截断。
      * 调用方必须自己兜住"返回 null / code!=200 / data 为 null"这三种情况，服务端不做部分成功。

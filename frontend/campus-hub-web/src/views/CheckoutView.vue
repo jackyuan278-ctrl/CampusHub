@@ -161,8 +161,9 @@ async function submit() {
   if (!lines.value.length) return ElMessage.warning('没有可结算的商品')
   if (!currentAddress.value) return ElMessage.warning('请选择收货地址')
   submitting.value = true
+  let order
   try {
-    const order = await orderApi.create({
+    order = await orderApi.create({
       receiver: currentAddress.value.receiver,
       phone: currentAddress.value.phone,
       address: fullAddress(currentAddress.value),
@@ -176,18 +177,20 @@ async function submit() {
         spec: line.spec
       }))
     })
-    sessionStorage.removeItem(CHOSEN_KEY)
-    // 已下单的商品从购物车移除（后端下单不会自动清理）
-    const restIds = cart.items.filter((line) => !chosenIds.value.includes(line.itemId))
-    if (restIds.length) await Promise.all(chosenIds.value.map((id) => cart.remove(id)))
-    else await cart.clear()
-    ElMessage.success('订单已提交，请完成支付')
-    router.push(`/orders/${order.id}`)
   } catch {
-    // 统一错误提示
-  } finally {
     submitting.value = false
+    return
   }
+  // 订单已经创建，下面的收尾动作失败不能让用户以为「下单失败」
+  sessionStorage.removeItem(CHOSEN_KEY)
+  try {
+    await Promise.all(chosenIds.value.map((id) => cart.remove(id)))
+  } catch {
+    // 购物车清理失败只影响下一次看到的列表，刷新即可自愈
+  }
+  submitting.value = false
+  ElMessage.success('订单已提交，请完成支付')
+  router.push(`/orders/${order.id}`)
 }
 
 onMounted(async () => {

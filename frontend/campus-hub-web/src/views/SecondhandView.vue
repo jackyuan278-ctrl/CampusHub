@@ -149,7 +149,11 @@ async function loadCategories() {
 }
 
 /** 首次/筛选变化：走 page 分页（后端前 5 页支持 offset） */
+// 快速切换分类时会有多个请求在飞，只认最后一次的结果，避免旧响应覆盖新列表
+let reloadSeq = 0
+
 async function reload() {
+  const seq = ++reloadSeq
   loading.value = true
   error.value = ''
   cursor.value = null
@@ -165,22 +169,25 @@ async function reload() {
       },
       { silent: true }
     )
+    if (seq !== reloadSeq) return
     items.value = data?.list || []
     total.value = Number(data?.total || items.value.length)
     // page 模式不返回 hasMore，用「已加载数 < 总数」推断是否还能继续拉取
     hasMore.value = items.value.length < total.value
   } catch (err) {
+    if (seq !== reloadSeq) return
     error.value = err.message || '请稍后重试'
     items.value = []
     total.value = 0
   } finally {
-    loading.value = false
+    if (seq === reloadSeq) loading.value = false
   }
 }
 
 /** 滚动加载：第 2 页起改用游标分页，避免后端深分页限制 */
 async function loadMore() {
   if (!items.value.length) return
+  const seq = reloadSeq
   loadingMore.value = true
   try {
     const last = items.value[items.value.length - 1]
@@ -193,13 +200,15 @@ async function loadMore() {
     }
     if (sort.value) params.cursorSortValue = cursorSortValue.value ?? last.price
     const data = await itemApi.page(params, { silent: true })
+    // 期间用户换了筛选条件，这批数据已经不属于当前列表
+    if (seq !== reloadSeq) return
     const list = data?.list || []
     items.value = [...items.value, ...list]
     hasMore.value = Boolean(data?.hasMore)
     cursor.value = data?.nextCursor || null
     cursorSortValue.value = data?.nextCursorSortValue ?? null
   } catch (err) {
-    ElMessage.error(err.message || '加载更多失败')
+    if (seq === reloadSeq) ElMessage.error(err.message || '加载更多失败')
   } finally {
     loadingMore.value = false
   }
