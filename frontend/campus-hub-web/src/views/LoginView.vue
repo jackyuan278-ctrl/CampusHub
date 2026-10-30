@@ -19,16 +19,17 @@
 
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent="submit">
         <el-form-item prop="username">
-          <el-input v-model="form.username" size="large" placeholder="用户名" autocomplete="username" />
+          <el-input v-model="form.username" size="large" placeholder="用户名" autocomplete="off" name="campushub-account" />
         </el-form-item>
         <el-form-item v-if="mode === 'register'" prop="phone">
-          <el-input v-model="form.phone" size="large" placeholder="手机号" maxlength="11" />
+          <el-input v-model="form.phone" size="large" placeholder="手机号" maxlength="11" autocomplete="off" name="campushub-phone" />
         </el-form-item>
         <el-form-item prop="password">
-          <el-input v-model="form.password" size="large" show-password placeholder="密码（6-20 位）" autocomplete="current-password" />
+          <!-- new-password 是唯一能稳定阻止 Chrome 回填已保存密码的取值，登录/注册共用一个输入框 -->
+          <el-input v-model="form.password" size="large" show-password placeholder="密码（6-20 位）" autocomplete="new-password" name="campushub-secret" />
         </el-form-item>
         <el-form-item v-if="mode === 'register'" prop="confirmPassword">
-          <el-input v-model="form.confirmPassword" size="large" show-password placeholder="确认密码" />
+          <el-input v-model="form.confirmPassword" size="large" show-password placeholder="确认密码" autocomplete="new-password" name="campushub-secret-confirm" />
         </el-form-item>
         <el-button type="primary" size="large" round class="full" :loading="submitting" @click="submit">
           {{ mode === 'login' ? '登录' : '注册并登录' }}

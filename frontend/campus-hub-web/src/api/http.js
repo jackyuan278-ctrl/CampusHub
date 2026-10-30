@@ -1,6 +1,5 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
-import { isMockEnabled, resolveMock } from './mock'
 
 const TOKEN_KEY = 'campushub_token'
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -50,19 +49,9 @@ apiClient.interceptors.response.use(
     throw new ApiError(body.msg || '请求失败', body.code)
   },
   async (error) => {
-    const config = error.config
-    /**
-     * 只有「连不上后端」时才走演示数据：
-     * - 无响应（ECONNREFUSED / 超时）
-     * - 开发代理因上游不可用返回的 HTML 5xx（真正的业务错误是 JSON Result）
-     */
-    const contentType = String(error.response?.headers?.['content-type'] || '')
     // 真实业务错误一定是 JSON（Result），其余 5xx 视为网关/代理不可用
+    const contentType = String(error.response?.headers?.['content-type'] || '')
     const proxyFailure = Boolean(error.response) && error.response.status >= 500 && !contentType.includes('application/json')
-    if ((!error.response || proxyFailure) && config && isMockEnabled()) {
-      const mocked = await resolveMock(config)
-      if (mocked !== undefined) return mocked
-    }
     if (error.code === 'ECONNABORTED') {
       throw new ApiError('请求超时，请检查网络后重试', 0)
     }
