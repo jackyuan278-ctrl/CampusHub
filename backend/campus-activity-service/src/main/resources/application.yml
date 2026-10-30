@@ -29,7 +29,13 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:123}
       database: 3
-  # ES 搜索功能未实现前不影响启动；部署 ES 8 后由 dev 配置覆盖地址
+    # ES 只做加速层，不是启动必需项：关掉 repository 自动装配，
+    # 避免 ES 不可达时 SimpleElasticsearchRepository 构造失败拖垮整个服务启动。
+    # 搜索接口在 ActivitySearchServiceImpl 里已降级为 MySQL 模糊查询。
+    elasticsearch:
+      repositories:
+        enabled: false
+  # 部署 ES 8 后由 dev 配置覆盖地址；不部署也不影响启动
   elasticsearch:
     uris: ${ES_URIS:http://124.220.155.27:9200}
   jackson:

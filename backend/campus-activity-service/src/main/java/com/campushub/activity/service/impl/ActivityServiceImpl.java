@@ -21,6 +21,7 @@ import com.campushub.activity.mapper.SignupMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,7 +38,8 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     private final SignupMapper signupMapper;
     private final StringRedisTemplate stringRedisTemplate;
-    private final ActivityRepository activityRepository;
+    /** ES 索引仓库是可选项：未部署 ES 时 bean 不存在，用 ObjectProvider 延迟获取避免启动失败 */
+    private final ObjectProvider<ActivityRepository> activityRepositoryProvider;
 
     // ============ 以下为核心业务（面试深挖区），由你实现，依赖已注入 ============
 
@@ -149,9 +151,14 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     @Override
     public void saveDoc(Activity activity) {
-        // 索引是旁路：ES 异常只记日志，不拖垮发布主流程
+        // 索引是旁路：ES 未部署时直接跳过；ES 异常只记日志，不拖垮发布主流程
+        ActivityRepository repository = activityRepositoryProvider.getIfAvailable();
+        if (repository == null) {
+            log.debug("ES 未启用，跳过活动索引写入 activityId={}", activity.getId());
+            return;
+        }
         try {
-            activityRepository.save(BeanUtil.copyProperties(activity, ActivityDoc.class));
+            repository.save(BeanUtil.copyProperties(activity, ActivityDoc.class));
         } catch (Exception e) {
             log.warn("活动索引写入失败，不影响主流程 activityId={}", activity.getId(), e);
         }
@@ -159,8 +166,13 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
 
     @Override
     public void deleteDoc(Long id) {
+        ActivityRepository repository = activityRepositoryProvider.getIfAvailable();
+        if (repository == null) {
+            log.debug("ES 未启用，跳过活动索引删除 activityId={}", id);
+            return;
+        }
         try {
-            activityRepository.deleteById(id);
+            repository.deleteById(id);
         } catch (Exception e) {
             log.warn("活动索引删除失败，不影响主流程 activityId={}", id, e);
         }
