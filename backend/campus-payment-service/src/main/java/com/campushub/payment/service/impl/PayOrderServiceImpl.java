@@ -160,7 +160,8 @@ public class PayOrderServiceImpl extends ServiceImpl<PayOrderMapper, PayOrder> i
         }
 
         // 在本地事务中原子地标记已支付并写入 Outbox；支付事件由后台任务可靠重试。
-        if (!payCompletionService.markPaidAndCreateEvent(payOrder.getId(), orderId)) {
+        // payType 一并落库并随事件下发，否则交易侧只知道「付了钱」，不知道用什么付的。
+        if (!payCompletionService.markPaidAndCreateEvent(payOrder.getId(), orderId, payType)) {
             throw new BizException(409, "支付结果待核对，请勿重复支付");
         }
     }

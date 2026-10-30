@@ -3,8 +3,10 @@ package com.campushub.payment.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.campushub.api.constants.MqConstants;
+import com.campushub.api.dto.PaySuccessMessage;
 import com.campushub.payment.domain.po.PayEventOutbox;
 import com.campushub.payment.mapper.PayEventOutboxMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -19,6 +21,7 @@ import java.time.LocalDateTime;
 public class PayEventPublisher {
     private final PayEventOutboxMapper outboxMapper;
     private final RabbitTemplate rabbitTemplate;
+    private final ObjectMapper objectMapper;
 
     @Scheduled(fixedDelay = 3000)
     public void publishPending() {
@@ -36,7 +39,12 @@ public class PayEventPublisher {
      */
     public void publishOne(PayEventOutbox event) {
         try {
-            rabbitTemplate.convertAndSend(MqConstants.PAY_NOTIFY_EXCHANGE, MqConstants.PAY_NOTIFY_KEY, event.getBizOrderNo());
+            // 载荷从裸订单号改成 JSON：交易侧要知道支付渠道才能回写订单的支付方式。
+            // 仍然发字符串而不是自定义对象，这样不必给 RabbitTemplate 换消息转换器——
+            // 那条链路刚验证通过，不在这一轮里动。
+            String payload = objectMapper.writeValueAsString(
+                    new PaySuccessMessage(event.getBizOrderNo(), event.getChannel()));
+            rabbitTemplate.convertAndSend(MqConstants.PAY_NOTIFY_EXCHANGE, MqConstants.PAY_NOTIFY_KEY, payload);
             outboxMapper.update(null, new LambdaUpdateWrapper<PayEventOutbox>()
                     .eq(PayEventOutbox::getId, event.getId()).eq(PayEventOutbox::getPublished, 0)
                     .set(PayEventOutbox::getPublished, 1).set(PayEventOutbox::getPublishedTime, LocalDateTime.now()));

@@ -58,3 +58,18 @@ DEALLOCATE PREPARE stmt;
 -- 结果为 0 再执行下面两条：
 --   ALTER TABLE campushub_payment.tb_pay_order MODIFY COLUMN biz_order_no BIGINT NOT NULL COMMENT '订单服务的订单业务号';
 --   ALTER TABLE campushub_payment.tb_pay_event_outbox MODIFY COLUMN biz_order_no BIGINT NOT NULL;
+
+-- ---------- 5. tb_pay_event_outbox 补 channel 列 ----------
+-- 支付成功事件要带上实际支付渠道，交易服务才能回写 tb_order.payment_type；
+-- outbox 是消息的持久化载体，重启后重发时也得知道渠道，所以这一列必须落库。
+-- 注意：tb_pay_order.channel 建表时就有（默认 'MOCK'），那边不用加，只是 Java 侧之前没映射。
+SET @has_outbox_channel = (SELECT COUNT(*) FROM information_schema.COLUMNS
+                           WHERE TABLE_SCHEMA = 'campushub_payment'
+                             AND TABLE_NAME = 'tb_pay_event_outbox'
+                             AND COLUMN_NAME = 'channel');
+SET @ddl = IF(@has_outbox_channel = 0,
+    'ALTER TABLE `campushub_payment`.`tb_pay_event_outbox` ADD COLUMN `channel` VARCHAR(16) NULL COMMENT ''支付渠道 balance/mock，随事件下发'' AFTER `biz_order_no`',
+    'SELECT ''tb_pay_event_outbox.channel 已存在'' ');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

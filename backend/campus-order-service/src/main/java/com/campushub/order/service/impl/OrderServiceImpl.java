@@ -48,6 +48,12 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     private static final int ORDER_STATUS_UNPAID = 1;
     /** 下单时尚未选择支付方式，与 tb_order.payment_type 默认值保持一致 */
     private static final int PAYMENT_TYPE_UNSET = 0;
+    /** 余额支付，与 tb_order.payment_type 注释、前端 PAYMENT_TYPE 映射一致 */
+    private static final int PAYMENT_TYPE_BALANCE = 1;
+    /** 模拟支付 */
+    private static final int PAYMENT_TYPE_MOCK = 2;
+    /** 支付服务下发的渠道标识 */
+    private static final String CHANNEL_BALANCE = "balance";
     /** 商品快照缺少卖家时的兜底值，避免 NOT NULL 约束直接失败 */
     private static final Long NO_SELLER_ID = 0L;
     /**
@@ -266,15 +272,19 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     }
 
     @Override
-    public void markPaySuccess(Long orderId) {
+    public void markPaySuccess(Long orderId, String channel) {
         // Pay 已将支付单确认成功后才发送消息；Trade 只负责幂等地更新自己的订单状态。
         // TODO 销量累加待拍板（建议 item 服务监听支付成功消息异步加 sold）
-        boolean success = lambdaUpdate()
+        var update = lambdaUpdate()
                 .eq(Order::getId, orderId)
                 .eq(Order::getStatus, 1)
                 .set(Order::getStatus, 2)
-                .set(Order::getPayTime, LocalDateTime.now())
-                .update();
+                .set(Order::getPayTime, LocalDateTime.now());
+        // 旧格式消息不带渠道，此时保留原值（0=未设置），不猜；猜错比留空更糟
+        if (channel != null) {
+            update.set(Order::getPaymentType, toPaymentType(channel));
+        }
+        boolean success = update.update();
         if (success) {
             return;
         }
@@ -283,6 +293,15 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         if (order != null && Integer.valueOf(5).equals(order.getStatus())) {
             log.warn("订单{}已关闭但收到支付成功消息，待退款补偿", orderId);
         }
+    }
+
+    /**
+     * 把支付服务的渠道标识翻译成订单表的 payment_type。
+     * 目前只有 balance / mock 两种；未知值按模拟支付落库，宁可显示一个近似值，
+     * 也不要让订单详情页继续显示「未记录」。
+     */
+    private int toPaymentType(String channel) {
+        return CHANNEL_BALANCE.equals(channel) ? PAYMENT_TYPE_BALANCE : PAYMENT_TYPE_MOCK;
     }
 
     @Override

@@ -96,7 +96,8 @@
             </template>
 
             <template v-else>
-              <div class="checkout-row"><span>支付方式</span><b>{{ PAYMENT_TYPE[order.paymentType] || '未记录' }}</b></div>
+              <!-- 老订单在补丁前付款，order.payment_type 仍是 0，没有可信值就不显示这一行，别写"未记录" -->
+              <div v-if="PAYMENT_TYPE[order.paymentType]" class="checkout-row"><span>支付方式</span><b>{{ PAYMENT_TYPE[order.paymentType] }}</b></div>
               <div class="checkout-row"><span>支付时间</span><b>{{ formatDate(order.payTime, true) || '—' }}</b></div>
               <div class="checkout-total"><span>已支付</span><strong>¥{{ money(order.totalFee) }}</strong></div>
               <el-button round size="large" class="checkout-button" @click="router.push('/orders')">返回订单列表</el-button>

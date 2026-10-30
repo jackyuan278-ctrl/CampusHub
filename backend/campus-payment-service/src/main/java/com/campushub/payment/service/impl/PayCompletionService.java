@@ -24,7 +24,7 @@ public class PayCompletionService {
     private final PayEventPublisher payEventPublisher;
 
     @Transactional(rollbackFor = Exception.class)
-    public boolean markPaidAndCreateEvent(Long payOrderId, Long orderId) {
+    public boolean markPaidAndCreateEvent(Long payOrderId, Long orderId, String channel) {
         PayOrder payOrder = payOrderMapper.selectById(payOrderId);
         if (payOrder == null) {
             return false;
@@ -40,11 +40,13 @@ public class PayCompletionService {
                 .eq(PayOrder::getStatus, PayStatus.PROCESSING)
                 .set(PayOrder::getStatus, PayStatus.PAID)
                 .set(PayOrder::getPaymentNo, paymentNo)
+                .set(PayOrder::getChannel, channel)
                 .set(PayOrder::getPayTime, LocalDateTime.now()));
         if (updated == 0) return false;
         PayEventOutbox event = new PayEventOutbox();
         event.setPaymentNo(paymentNo);
         event.setBizOrderNo(orderId);
+        event.setChannel(channel);
         event.setPublished(0);
         event.setCreateTime(LocalDateTime.now());
         outboxMapper.insert(event);

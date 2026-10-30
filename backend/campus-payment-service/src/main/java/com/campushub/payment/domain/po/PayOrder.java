@@ -32,6 +32,9 @@ public class PayOrder implements Serializable {
     /** 支付金额（分） */
     private Integer amount;
 
+    /** 实际支付渠道：balance / mock。对应 tb_pay_order.channel，支付确认成功时写入。 */
+    private String channel;
+
     /** 支付状态：1待支付、2已支付、3处理中。处理中用于阻止并发支付请求重复扣款。 */
     private Integer status;
 
