@@ -1,0 +1,97 @@
+# CampusHub 8 个微服务
+# 全部使用 host 网络：容器直接共享宿主机网卡，
+#   1) 访问 127.0.0.1:3306/6379/5672/8848 直通，不需要 host.docker.internal
+#   2) 服务间用 127.0.0.1 互访，注册到 Nacos 的 IP 也是 127.0.0.1，网关调用零绕路
+#   3) 少一层 docker-proxy 转发，省内存也省延迟
+# 注意：host 网络下不要写 ports 映射，端口就是服务自己的 server.port
+
+x-common: &common
+  network_mode: host
+  env_file: .env
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  gateway:
+    <<: *common
+    build:
+      context: .
+      args:
+        JAR_FILE: gateway.jar
+    image: campushub/gateway:1.0.0
+    container_name: CampusHub-gateway
+    mem_limit: 200m
+
+  user:
+    <<: *common
+    build:
+      context: .
+      args:
+        JAR_FILE: user.jar
+    image: campushub/user:1.0.0
+    container_name: CampusHub-user
+    mem_limit: 210m
+
+  secondhand:
+    <<: *common
+    build:
+      context: .
+      args:
+        JAR_FILE: secondhand.jar
+    image: campushub/secondhand:1.0.0
+    container_name: CampusHub-secondhand
+    mem_limit: 210m
+
+  cart:
+    <<: *common
+    build:
+      context: .
+      args:
+        JAR_FILE: cart.jar
+    image: campushub/cart:1.0.0
+    container_name: CampusHub-cart
+    mem_limit: 200m
+
+  order:
+    <<: *common
+    build:
+      context: .
+      args:
+        JAR_FILE: order.jar
+    image: campushub/order:1.0.0
+    container_name: CampusHub-order
+    mem_limit: 240m
+
+  payment:
+    <<: *common
+    build:
+      context: .
+      args:
+        JAR_FILE: payment.jar
+    image: campushub/payment:1.0.0
+    container_name: CampusHub-payment
+    mem_limit: 210m
+
+  activity:
+    <<: *common
+    build:
+      context: .
+      args:
+        JAR_FILE: activity.jar
+    image: campushub/activity:1.0.0
+    container_name: CampusHub-activity
+    mem_limit: 210m
+
+  community:
+    <<: *common
+    build:
+      context: .
+      args:
+        JAR_FILE: community.jar
+    image: campushub/community:1.0.0
+    container_name: CampusHub-community
+    mem_limit: 210m

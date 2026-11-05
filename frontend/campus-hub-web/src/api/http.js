@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import { isDevToken } from '@/utils/devAccount'
 
 const TOKEN_KEY = 'campushub_token'
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -32,6 +33,17 @@ let unauthorizedHandler = null
 /** 由 main.js 注入：token 失效时清理登录态并跳转登录页 */
 export function setUnauthorizedHandler(handler) {
   unauthorizedHandler = handler
+}
+
+/**
+ * 手动触发"登录态失效"处理。
+ *
+ * axios 那边由响应拦截器自动触发；但 SSE 对话和附件上传走的是原生 fetch
+ * （要读响应流，axios 会整段缓冲），绕过了拦截器，所以它们需要主动调这个，
+ * 否则 token 过期时只会被当成"服务连不上"，用户看不到要重新登录。
+ */
+export function notifyUnauthorized() {
+  if (typeof unauthorizedHandler === 'function') unauthorizedHandler()
 }
 
 apiClient.interceptors.request.use((config) => {
@@ -76,7 +88,8 @@ export async function request(config, options = {}) {
     return await apiClient.request(config)
   } catch (error) {
     const apiError = error instanceof ApiError ? error : new ApiError(error.message || '请求失败', 0)
-    if (Number(apiError.code) === 401) unauthorizedHandler?.()
+    // 测试账号是本地假会话，打真实接口必然 401，不能因为这就把人踢下线
+    if (Number(apiError.code) === 401 && !isDevToken(getToken())) unauthorizedHandler?.()
     if (!silent) ElMessage.error(apiError.message)
     throw apiError
   }

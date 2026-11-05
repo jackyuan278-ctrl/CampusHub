@@ -10,6 +10,8 @@ const routes = [
   { path: '/activities/:id', name: 'activity-detail', component: () => import('@/views/ActivityDetailView.vue'), meta: { title: '活动详情' } },
   { path: '/community', name: 'community', component: () => import('@/views/CommunityView.vue'), meta: { title: '问答社区' } },
   { path: '/community/:id', name: 'question-detail', component: () => import('@/views/QuestionDetailView.vue'), meta: { title: '问题详情' } },
+  // 智能助手：保留站点头部，占满剩余视口高度，内部左会话 + 右对话；需要登录才能用
+  { path: '/assistant', name: 'assistant', component: () => import('@/views/AssistantView.vue'), meta: { title: '智能助手', full: true, auth: true } },
   { path: '/cart', name: 'cart', component: () => import('@/views/CartView.vue'), meta: { title: '购物车', auth: true } },
   { path: '/checkout', name: 'checkout', component: () => import('@/views/CheckoutView.vue'), meta: { title: '确认订单', auth: true } },
   { path: '/orders', name: 'orders', component: () => import('@/views/OrdersView.vue'), meta: { title: '我的订单', auth: true } },

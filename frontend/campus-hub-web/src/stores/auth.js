@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { userApi } from '@/api/user'
 import { getToken, setToken } from '@/api/http'
+import { createDevSession, isDevCredential, isDevToken } from '@/utils/devAccount'
 
 const USER_KEY = 'campushub_user'
 
@@ -19,6 +20,7 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false)
 
   const isLoggedIn = computed(() => Boolean(token.value))
+  const isDevSession = computed(() => isDevToken(token.value))
   const displayName = computed(() => user.value?.nickname || user.value?.username || '校园用户')
   const balance = computed(() => user.value?.balance ?? 0)
 
@@ -30,6 +32,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function loadMe() {
     if (!token.value) return null
+    // 测试账号是本地会话，没有对应的后端用户，直接用手上这份缓存
+    if (isDevToken(token.value)) return user.value
     try {
       const data = await userApi.me({ silent: true })
       cacheUser(data)
@@ -44,6 +48,14 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(payload) {
     loading.value = true
     try {
+      // 测试账号：不请求后端，直接建本地会话，方便后端没起时联调
+      if (isDevCredential(payload.username, payload.password)) {
+        const session = createDevSession()
+        token.value = session.token
+        setToken(session.token)
+        cacheUser(session.user)
+        return { token: session.token }
+      }
       const data = await userApi.login(payload)
       token.value = data.token
       setToken(data.token)
@@ -65,5 +77,5 @@ export const useAuthStore = defineStore('auth', () => {
     cacheUser(null)
   }
 
-  return { token, user, loading, isLoggedIn, displayName, balance, loadMe, login, register, reset, cacheUser }
+  return { token, user, loading, isLoggedIn, isDevSession, displayName, balance, loadMe, login, register, reset, cacheUser }
 })

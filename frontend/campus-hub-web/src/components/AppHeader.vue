@@ -75,7 +75,8 @@ const navItems = [
   { to: '/home', label: '首页', icon: 'House' },
   { to: '/secondhand', label: '校园二手', icon: 'Goods' },
   { to: '/activities', label: '校园活动', icon: 'Calendar' },
-  { to: '/community', label: '问答社区', icon: 'ChatDotRound' }
+  { to: '/community', label: '问答社区', icon: 'ChatDotRound' },
+  { to: '/assistant', label: '智能助手', icon: 'MagicStick' }
 ]
 
 function requireLogin(redirect) {

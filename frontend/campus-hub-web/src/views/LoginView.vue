@@ -37,7 +37,10 @@
       </el-form>
 
       <el-button text class="full ghost" @click="router.push('/home')">先去逛逛</el-button>
-      <p class="auth-tip">演示账号可在后端 tb_user 中注册，注册接口已对接 /users/register。</p>
+      <p class="auth-tip">
+        测试账号：<b>{{ DEV_ACCOUNT.username }}</b> / <b>{{ DEV_ACCOUNT.password }}</b>
+        <button type="button" class="auth-fill" @click="fillDev">一键填入</button>
+      </p>
     </div>
   </div>
 </template>
@@ -48,6 +51,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
+import { DEV_ACCOUNT } from '@/utils/devAccount'
 
 const route = useRoute()
 const router = useRouter()
@@ -87,6 +91,14 @@ function switchMode(next) {
   formRef.value?.clearValidate()
 }
 
+/** 测试账号一键填入，省得每次手敲 */
+function fillDev() {
+  mode.value = 'login'
+  form.username = DEV_ACCOUNT.username
+  form.password = DEV_ACCOUNT.password
+  formRef.value?.clearValidate()
+}
+
 async function submit() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
@@ -109,3 +121,21 @@ async function submit() {
   }
 }
 </script>
+
+<style scoped>
+.auth-tip {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+.auth-tip b { color: var(--primary-deep); font-weight: 700; }
+.auth-fill {
+  margin-left: 6px;
+  border: 0;
+  background: none;
+  color: var(--primary-deep);
+  font-size: 12px;
+  text-decoration: underline;
+}
+</style>

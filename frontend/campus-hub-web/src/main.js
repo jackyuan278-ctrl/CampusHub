@@ -12,7 +12,7 @@ import { useCartStore } from './stores/cart'
 import './styles/index.css'
 
 const app = createApp(App)
-const pinia = createPinia()
+  const pinia = createPinia()
 
 app.use(pinia).use(router).use(ElementPlus, { locale: zhCn })
 for (const [name, component] of Object.entries(Icons)) app.component(name, component)
