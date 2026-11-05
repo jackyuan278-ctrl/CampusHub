@@ -81,14 +81,63 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         return activity.getId();
     }
 
+    /**
+     * 由「发布状态 + 报名时间窗口」派生出对外展示的报名状态。
+     *
+     * 为什么不往表里加 status=未开始：signup_start_time 已经是这件事的唯一依据，
+     * 再加一个状态字段就有两套真相——时间到了谁去改它？只能挂定时任务扫表翻转，
+     * 漏跑一次就永远停在「未开始」。派生则永远和真实时间一致。
+     */
+    private String resolveSignupState(Activity activity, LocalDateTime now) {
+        Integer status = activity.getStatus();
+        if (status == null) {
+            return "UNKNOWN";
+        }
+        if (status == 4) {
+            return "CANCELLED";
+        }
+        if (status == 3) {
+            return "ENDED";
+        }
+        if (status == 2) {
+            return "ONGOING";
+        }
+        // status == 1：活动已发布，报名是否开放看时间窗口
+        if (activity.getSignupStartTime() != null && now.isBefore(activity.getSignupStartTime())) {
+            return "NOT_STARTED";
+        }
+        if (activity.getSignupEndTime() != null && now.isAfter(activity.getSignupEndTime())) {
+            return "CLOSED";
+        }
+        return "OPEN";
+    }
+
     @Override
     public PageDTO<ActivityVO> queryActivityPage(ActivityPageQuery query) {
         Integer status = query.getStatus();
         String keyword = query.getKeyword();
+        String signupState = query.getSignupState();
+        LocalDateTime now = LocalDateTime.now();
         LambdaQueryChainWrapper<Activity> chain = lambdaQuery()
                 .eq(status!=null,Activity::getStatus, status)
                 .like(StringUtils.hasText(keyword),Activity::getTitle, keyword)
                 .orderByDesc(Activity::getCreateTime);
+
+        // 报名状态筛选必须下推到 SQL：列表是后端分页的，前端只筛当前页会让
+        // 总数和翻页都失真（用户会看到「共 355 条」却只翻到 59 条符合条件的）。
+        if (StringUtils.hasText(signupState)) {
+            switch (signupState.toUpperCase()) {
+                case "OPEN" -> chain.eq(Activity::getStatus, 1)
+                        .le(Activity::getSignupStartTime, now)
+                        .ge(Activity::getSignupEndTime, now);
+                case "NOT_STARTED" -> chain.eq(Activity::getStatus, 1)
+                        .gt(Activity::getSignupStartTime, now);
+                case "CLOSED" -> chain.eq(Activity::getStatus, 1)
+                        .lt(Activity::getSignupEndTime, now);
+                default -> { /* 未知取值不筛，退化成全部 */ }
+            }
+        }
+
         Page<Activity> page = chain.page(query.toMpPage());
         List<Activity> activityList = page.getRecords();
         PageDTO<ActivityVO> pageDTO = new PageDTO<>();
@@ -98,6 +147,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
             ActivityVO activityVO = BeanUtil.copyProperties(activity, ActivityVO.class);
             // 余量直接来自 DB，Redis 只是挡流缓存，这里不再依赖它
             activityVO.setRemainingQuota(activity.getRemainQuota());
+            activityVO.setSignupState(resolveSignupState(activity, now));
             activityVOList.add(activityVO);
 
         }
@@ -113,6 +163,7 @@ public class ActivityServiceImpl extends ServiceImpl<ActivityMapper, Activity> i
         }
         ActivityVO activityVO = BeanUtil.copyProperties(activity, ActivityVO.class);
         activityVO.setRemainingQuota(activity.getRemainQuota());
+        activityVO.setSignupState(resolveSignupState(activity, LocalDateTime.now()));
         if (userId!=null){
             Signup signup = signupMapper.selectOne(Wrappers.<Signup>lambdaQuery()
                     .eq(Signup::getUserId, userId)

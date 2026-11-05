@@ -120,9 +120,14 @@ const route = useRoute()
 const router = useRouter()
 const requireLogin = useRequireLogin()
 
+// 「报名中」不能用 status=1 筛：status 只代表「活动已发布」，报名可能还没开始
+// （库里 355 个已发布活动里，291 个报名未开始）。拆成两个 tab，传 signupState
+// 让后端下推到 SQL 过滤——前端筛当前页会让总数和翻页都失真。
+const SIGNUP_TABS = ['OPEN', 'NOT_STARTED']
 const statusTabs = [
   { key: '', label: '全部活动' },
-  { key: '1', label: '报名中' },
+  { key: 'OPEN', label: '报名中' },
+  { key: 'NOT_STARTED', label: '即将开始' },
   { key: '2', label: '进行中' },
   { key: '3', label: '已结束' }
 ]
@@ -169,8 +174,15 @@ async function loadList() {
   error.value = ''
   searching.value = false
   try {
+    const tab = status.value
+    const bySignup = SIGNUP_TABS.includes(tab)
     const data = await activityApi.page(
-      { page: page.value, pageSize, status: status.value || undefined },
+      {
+        page: page.value,
+        pageSize,
+        status: bySignup ? undefined : tab || undefined,
+        signupState: bySignup ? tab : undefined
+      },
       { silent: true }
     )
     activities.value = data?.list || []

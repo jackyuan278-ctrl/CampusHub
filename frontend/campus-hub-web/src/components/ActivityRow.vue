@@ -34,7 +34,7 @@
 <script setup>
 import { computed } from 'vue'
 import StatusTag from './StatusTag.vue'
-import { ACTIVITY_STATUS, dateParts, formatDate, statusMeta } from '@/utils/format'
+import { activityState, dateParts, formatDate } from '@/utils/format'
 
 const props = defineProps({
   activity: { type: Object, required: true }
@@ -42,7 +42,7 @@ const props = defineProps({
 defineEmits(['open'])
 
 const parts = computed(() => dateParts(props.activity.startTime))
-const status = computed(() => statusMeta(ACTIVITY_STATUS, props.activity.status))
+const status = computed(() => activityState(props.activity))
 const hasQuota = computed(() => typeof props.activity.quota === 'number' && props.activity.quota > 0)
 const signedCount = computed(() => {
   if (!hasQuota.value) return 0

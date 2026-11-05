@@ -95,3 +95,34 @@ services:
     image: campushub/community:1.0.0
     container_name: CampusHub-community
     mem_limit: 210m
+
+  # Python 的智能助手（campus-agent）。
+  # 和上面 8 个 Java 服务不同，它不能复用 x-common 的 env_file: .env —— 两边的
+  # 变量名对不上（这里是 MYSQL_USER，Java 那边是 MYSQL_USERNAME），而且它还要
+  # GLM_API_KEY / MINERU_API_KEY / JWT_SECRET。所以单独用 agent/.env。
+  #
+  # 首次部署：
+  #   tar xzf agent-src.tar.gz -C agent          # 解出源码，context 必须是 ./agent
+  #   cp agent/.env.example agent/.env           # 然后填真实的 key
+  #   docker compose build agent && docker compose up -d agent
+  #
+  # 数据卷 ./agent-data 里放两样东西，**不挂卷就白建索引**：
+  #   data/rag/vectors.npy + docs.json   numpy 校园索引（要先跑一次 ingest）
+  #   data/rag/milvus.db                 附件切块（Milvus Lite）
+  agent:
+    network_mode: host
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    build:
+      context: ./agent
+    image: campushub/agent:1.0.0
+    container_name: CampusHub-agent
+    env_file: agent/.env
+    volumes:
+      - ./agent-data:/app/data
+    # faiss + numpy 常驻，给宽一点，不然向量检索时会 OOM
+    mem_limit: 512m

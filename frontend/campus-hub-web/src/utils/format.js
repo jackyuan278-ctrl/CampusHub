@@ -93,6 +93,45 @@ export const ACTIVITY_STATUS = {
   4: { text: '已取消', tone: 'muted' }
 }
 
+/**
+ * 报名状态的展示口径。
+ *
+ * 后端返回 signupState（由 status + 报名时间窗口派生），展示**只认这个字段**。
+ * 之前直接拿 status=1 映射成「报名中」，结果 291 个活动显示报名中、点进去却被
+ * 后端拒绝（「报名尚未开始」）——status 只代表「活动已发布」，不代表报名开放。
+ */
+export const SIGNUP_STATE = {
+  OPEN: { text: '报名中', tone: 'ok', open: true },
+  NOT_STARTED: { text: '报名未开始', tone: 'warn', open: false },
+  CLOSED: { text: '报名已截止', tone: 'muted', open: false },
+  ONGOING: { text: '进行中', tone: 'warn', open: false },
+  ENDED: { text: '已结束', tone: 'muted', open: false },
+  CANCELLED: { text: '已取消', tone: 'muted', open: false }
+}
+
+/**
+ * 取活动的展示状态。
+ * 后端没返回 signupState 时（旧版本/本地 mock）按同一套规则兜底算一遍，
+ * 保证「按钮能不能点」和「角标写什么」永远来自同一个判断。
+ */
+export function activityState(activity) {
+  if (!activity) return SIGNUP_STATE.ENDED
+  const fromServer = SIGNUP_STATE[activity.signupState]
+  if (fromServer) return fromServer
+
+  const status = Number(activity.status)
+  if (status === 4) return SIGNUP_STATE.CANCELLED
+  if (status === 3) return SIGNUP_STATE.ENDED
+  if (status === 2) return SIGNUP_STATE.ONGOING
+
+  const now = Date.now()
+  const start = parseTime(activity.signupStartTime)
+  const end = parseTime(activity.signupEndTime)
+  if (start && now < start.getTime()) return SIGNUP_STATE.NOT_STARTED
+  if (end && now > end.getTime()) return SIGNUP_STATE.CLOSED
+  return SIGNUP_STATE.OPEN
+}
+
 export const SIGNUP_STATUS = {
   1: { text: '已报名', tone: 'ok' },
   2: { text: '候补中', tone: 'warn' },

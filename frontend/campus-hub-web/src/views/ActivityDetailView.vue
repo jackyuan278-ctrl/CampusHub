@@ -149,7 +149,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { activityApi, signupApi } from '@/api/activity'
 import { useRequireLogin } from '@/composables/useRequireLogin'
-import { ACTIVITY_STATUS, formatDate, parseTime, statusMeta } from '@/utils/format'
+import { activityState, formatDate, parseTime } from '@/utils/format'
 import { isMyActivity } from '@/utils/mine'
 import StatePanel from '@/components/StatePanel.vue'
 import StatusTag from '@/components/StatusTag.vue'
@@ -163,7 +163,7 @@ const loading = ref(true)
 const error = ref('')
 const acting = ref(false)
 
-const status = computed(() => statusMeta(ACTIVITY_STATUS, activity.value?.status))
+const status = computed(() => activityState(activity.value))
 const statusText = computed(() => {
   if (myStatus.value === 1) return '已报名'
   if (myStatus.value === 2) return '候补中'
