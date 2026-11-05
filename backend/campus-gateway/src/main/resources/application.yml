@@ -6,8 +6,10 @@ spring:
   application:
     name: campus-gateway
   # 图片上传走网关转发，默认 256KB 的编解码缓冲容易被撑爆，放到 8MB
+  # 注意：campus-agent 的附件上限是 10MB（单文件），这里必须比它大，
+  # 否则 8~10MB 的文件会在网关就被拦下，报的还是个含混的 500。
   codec:
-    max-in-memory-size: 8MB
+    max-in-memory-size: 12MB
   # 网关无数据库，排除 zg-common 传递引入的 JDBC 自动配置
   autoconfigure:
     exclude:
@@ -17,6 +19,13 @@ spring:
       discovery:
         server-addr: ${NACOS_ADDR:124.220.155.27:8848}
     gateway:
+      httpclient:
+        connect-timeout: 5000
+        # SSE 与文档解析都要用长连接：
+        # - 对话是 text/event-stream，虽然首帧立刻返回，但整段可能持续十几秒
+        # - 上传 PDF 时后端会同步等 MinerU 解析，30~90 秒是常态
+        # 不显式放宽的话，长请求会被中间层掐断，前端只看到"连接失败"。
+        response-timeout: 300s
       routes:
         - id: user-service
           uri: lb://campus-user-service
@@ -71,6 +80,16 @@ spring:
           uri: lb://campus-payment-service
           predicates:
             - Path=/api/pay/**
+          filters:
+            - StripPrefix=1
+        # Python 服务（campus-agent）：不是 Spring 应用、不注册进 Nacos，
+        # 所以用固定地址而不是 lb://。StripPrefix=1 把 /api 去掉，
+        # 下游看到的是 /assistant/chat、/assistant/upload、/assistant/chat/messages。
+        # 地址可用 AGENT_BASE_URL 覆盖（agent 和网关不同机时改这个）。
+        - id: agent-service
+          uri: ${AGENT_BASE_URL:http://127.0.0.1:8000}
+          predicates:
+            - Path=/api/assistant/**
           filters:
             - StripPrefix=1
 campus:

@@ -125,6 +125,14 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
         if (antPathMatcher.match("/api/users/login", path) || antPathMatcher.match("/api/users/register", path)) {
             return true;
         }
+        // Python 的 campus-agent 自己验签（和本网关共用 JWT_SECRET）。
+        // 放在这里放行是为了「只验一次」：网关拦下来只会返回本项目的
+        // {"code":401,"msg":"未登录"}，而 agent 有自己的错误格式和配额逻辑；
+        // 只要没带 token，agent 一样会 401，安全性没有放松。
+        // 注意不要给它注入 user-info —— agent 不认这个头，认的是 Authorization。
+        if (antPathMatcher.match("/api/assistant/**", path)) {
+            return true;
+        }
         if ("GET".equalsIgnoreCase(method)
                 && (antPathMatcher.match("/api/items/**", path)
                 || antPathMatcher.match("/api/activities/**", path)
