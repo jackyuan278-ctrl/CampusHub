@@ -85,7 +85,11 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
         // 而 cursor 分页依赖 id 连续（gt(id, cursorId)），加复合排序会漏数据，故不展示。
         lq.eq(Item::getStatus, ItemStatus.ON_SHELF.getValue());
         if (StrUtil.isNotBlank(query.getKeyword())) {
-            lq.like(Item::getName, query.getKeyword());
+            // 用前缀匹配（name LIKE 'kw%'）而不是 lq.like（'%kw%'）：
+            // 前导通配符会让 B+ 树无法定位起点，退化成 103 万行逐条字符串匹配，
+            // 实测单次 3981 ms；前缀匹配可以走 idx_status_name 做索引范围扫描。
+            // 代价：只能从商品名开头匹配，搜「高数」找不到「同济高数教材」。
+            lq.likeRight(Item::getName, query.getKeyword());
         }
         if (query.getCategoryId() != null && query.getCategoryId() <= MIN_VALID_CATEGORY_ID) {
             throw new BizException(BizException.BAD_REQUEST_CODE, CATEGORY_INVALID_MESSAGE);
@@ -117,7 +121,10 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
                 lq.orderByAsc(Item::getPrice).orderByAsc(Item::getId);
                 break;
             case SORT_PRICE_DESC:
-                lq.orderByDesc(Item::getPrice).orderByAsc(Item::getId);
+                // id 也必须是 DESC：索引 idx_status_price_id 是 (status, price, id) 全升序，
+                // 倒着扫正好得到 price DESC + id DESC。若 tie-break 写成 ASC 就成了混合方向，
+                // 索引顺序无法满足，会退化成对全表 filesort（实测单次 1.6 秒）。
+                lq.orderByDesc(Item::getPrice).orderByDesc(Item::getId);
                 break;
             case DEFAULT_SORT:
                 // 列表默认「最新在前」：id 单调递增，倒序即上架时间倒序。
@@ -144,8 +151,9 @@ public class ItemServiceImpl extends ServiceImpl<ItemMapper, Item> implements II
                             .or().eq(Item::getPrice, query.getCursorSortValue()).gt(Item::getId, query.getCursorId()));
                     break;
                 case SORT_PRICE_DESC:
+                    // 与上面的 orderByDesc(id) 保持一致：同价位内 id 递减，游标取「更小」的 id
                     lq.and(w -> w.lt(Item::getPrice, query.getCursorSortValue())
-                            .or().eq(Item::getPrice, query.getCursorSortValue()).gt(Item::getId, query.getCursorId()));
+                            .or().eq(Item::getPrice, query.getCursorSortValue()).lt(Item::getId, query.getCursorId()));
                     break;
                 default:
                     // 排序是 id DESC，游标取「比上一页末条更小」的 id
