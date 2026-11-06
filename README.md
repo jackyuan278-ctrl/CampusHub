@@ -28,60 +28,78 @@
 每个业务服务使用独立数据库：
 
 ```text
-campus-user-service       -> campushub_user
-campus-activity-service   -> campushub_activity
-campus-community-service  -> campushub_community
-campus-secondhand-service -> campushub_secondhand
-campus-cart-service       -> campushub_cart
-campus-order-service      -> campushub_order
-campus-payment-service    -> campushub_payment
+campushub_user
+campushub_activity
+campushub_community
+campushub_secondhand
+campushub_cart
+campushub_order
+campushub_payment
 ```
 
-服务之间通过业务 ID、HTTP/Feign 或消息进行协作，不跨库 JOIN，也不共享数据库表。
 
-## 本地运行
 
-后端 Maven 工程根目录是：
 
-```text
-CampusHub/backend/pom.xml
-```
+## 第一次测试
 
-验证 Maven 模块：
+2026-11-06 用 JMeter 做并发压测。压测机在本地，服务部署在腾讯云（4 核 4G、3 Mbps 公网带宽），商品表 103 万行。
 
-```powershell
-cd C:\Users\Tom\Desktop\workdemo\CampusHub\backend
-mvn validate
-```
+### 读接口
 
-完整编译需要本机 Maven 能访问所需插件和依赖；如果默认仓库不可写，可使用项目内的 `backend/work/maven-settings.xml` 指向可写仓库。
+20 并发，六种查询形态：
 
-前端：
+| 接口 | QPS | 平均响应 | 空载 | 瓶颈 |
+|---|---|---|---|---|
+| `GET /api/items/{id}` | **508** | 35 ms | 4.5 ms | 公网 3 Mbps 带宽 |
+| `GET /api/items/hot` | **77** | 221 ms | 9.6 ms | 同上 |
+| `GET /api/items` | **15.5** | 1093 ms | 220 ms | `COUNT(*)` 扫全表 + Hikari 5 连接 |
+| `GET /api/items?categoryId=1` | **7.6** | 2309 ms | 430 ms | 缺联合索引，走 index_merge |
+| `GET /api/items?sort=priceAsc` | **1.7** | 11240 ms | 1593 ms | 无 price 索引，filesort |
+| `GET /api/items?keyword=教材` | **0.96** | 19844 ms | 3981 ms | `LIKE '%x%'` 索引失效 |
 
-```powershell
-cd C:\Users\Tom\Desktop\workdemo\CampusHub\frontend\campus-hub-web
-npm install
-npm run dev
-```
+**默认列表 `GET /api/items`**
 
-## 已知限制与设计取舍
+![items](docs/benchmark/items.png)
 
-这份清单是有意留下的缺口，不是 bug，交接时请按「当前不支持」理解。
+**热门商品 `GET /api/items/hot`**
 
-**交易链路**
-- 商品状态只有「在售 / 已售」，没有中间态。`ItemStatus.RESERVED(2)` 是预留值，全链路没有代码写入，实际流程不会出现。
-- 结算时不做支付密码、不接第三方支付，只有余额与模拟扫码两条路。
-- 关单与支付的竞态由 `PayReconcileTask` 每分钟对账补偿：发现「支付单已付 + 订单已关闭」就把钱退回余额。退款前用 `PAID -> REFUNDED` 的条件更新抢占，保证只退一次；若退款调用本身失败，只记 error 日志等人工处理。
-- 销量字段未随支付累加，热榜权重按浏览量 + 点赞算。
+![hot](docs/benchmark/hot.png)
 
-**社区**
-- 回答与评论列表一次返回全部（各限 200 条），没有分页。问题多了以后需要改成游标分页。
-- 点赞的正确性以 `tb_like_record` 唯一键为准，Redis 里的 likeSet 只用于渲染红心；Redis 写失败时红心可能不亮，但不影响点赞本身。
-- 关注列表在用户服务不可用时保留条目、昵称留空，不会整页消失。
+**商品详情 `GET /api/items/{id}`**
 
-**已知技术债**
-- `PageQuery` 在 secondhand / community / order 各有一份副本，未收敛到 campus-api。
-- 月度签到一次请求会读 31 次 `GETBIT`，用户量上来后应改成 `BITFIELD` 一次取回。
-- outbox 的定时扫描是单机 Spring Task，多实例部署会重复投递（消费端幂等，可容忍），严格只发一次需要分布式调度。
-- RabbitMQ 未开启 publisher confirm，outbox 标 `published=1` 只代表消息已交给客户端，不代表 broker 已落盘。
-- 服务端口默认监听 `0.0.0.0`，下游信任 `user-info` 请求头。**部署时必须只对外暴露网关 8080**，其余端口仅内网可达。
+![detail](docs/benchmark/detail.png)
+
+**分类筛选 `GET /api/items?categoryId=1`**
+
+![category](docs/benchmark/category.png)
+
+**价格排序 `GET /api/items?sort=priceAsc`**
+
+![price](docs/benchmark/price.png)
+
+**关键词搜索 `GET /api/items?keyword=教材`**
+
+![search](docs/benchmark/search.png)
+
+**不足**
+
+- **分页带 `COUNT(*)`**：103 万行表上每次 200 ms，5 个 Hikari 连接把吞吐压在 15 QPS
+- **价格排序无索引**：`ORDER BY price` 触发 filesort 扫全表，单次 1.6 秒
+- **分类筛选缺 `(status, category_id)` 联合索引**：`index_merge intersect` 比全表扫描更慢（430 ms vs 220 ms）
+- **搜索用 `LIKE '%x%'`**：前导通配符，索引完全失效，单次 4 秒
+
+
+### 并发写：报名抢名额
+
+50 个不同用户并发抢 1 个名额（`POST /api/signups`），验证不超卖。
+
+| 指标 | 值 |
+|---|---|
+| 吞吐 | **9.9 QPS** |
+| 平均响应 | 369 ms |
+| 最小 / 最大 | 89 / 1631 ms |
+| 结果分布 | 1 个成功，49 个「名额已满」 |
+| 一致性校验 | `tb_signup` 1 条、`remain_quota` 0、Redis `stock` 0 ✅ |
+
+![报名并发压测](docs/benchmark/signup.png)
+
