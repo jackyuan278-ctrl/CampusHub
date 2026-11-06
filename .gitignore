@@ -21,3 +21,8 @@ frontend/**/dist/
 # 不加斜杠会连 Java 包 com.campushub.common.config 一起忽略）
 /config/
 
+# Deployment artifacts（构建产物和临时备份不进仓库）
+# 注意：deploy/agent/ 是 agent 服务的 Docker 构建上下文，不要忽略
+deploy/*.bak-*
+deploy/*.tar.gz
+
