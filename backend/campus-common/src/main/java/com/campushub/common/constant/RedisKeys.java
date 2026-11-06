@@ -49,6 +49,15 @@ public final class RedisKeys {
         return "signup:waitlist:" + activityId;
     }
 
+    /**
+     * 活动报名临时占用（ZSet：member=userId，score=占用到期的毫秒时间戳）。
+     * 只用于「同一用户重复提交」的幂等判定和超时回收，不代表库存——
+     * 库存以 signup:stock 为准，占用过期不会自动还名额。
+     */
+    public static String signupHold(Long activityId) {
+        return "signup:hold:" + activityId;
+    }
+
     /** 用户当月签到 Bitmap（offset = 当月日 - 1），yearMonth 形如 2026-09 */
     public static String checkinSign(Long userId, String yearMonth) {
         return "checkin:sign:" + userId + ":" + yearMonth;

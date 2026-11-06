@@ -18,6 +18,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -39,6 +41,10 @@ public class SignupServiceImpl extends ServiceImpl<SignupMapper, Signup> impleme
     private static final long GATE_DUP = 2L;
     /** 挡流结果：缓存未就绪或 Redis 不可用，由调用方拒绝（不偷偷放行） */
     private static final long GATE_UNAVAILABLE = 3L;
+    /** 挡流结果：同一用户的上一笔还在处理中（占用未过期），拒绝重复提交 */
+    private static final long GATE_PROCESSING = 4L;
+    /** 临时占用有效期：远大于一次 DB 事务（约 10 ms），又短到不会长期挡住重试 */
+    private static final long HOLD_TTL_MS = 30_000L;
     /** Redis 故障后的冷却时间，避免每个请求都等一次连接超时 */
     private static final long REDIS_COOLDOWN_MS = 5_000L;
 
@@ -62,7 +68,8 @@ public class SignupServiceImpl extends ServiceImpl<SignupMapper, Signup> impleme
         }
         validateSignupWindow(activity);
 
-        // ① 挡流：Redis 只提前拦掉注定失败的请求，不参与裁决
+        // ① 预扣：Lua 里一次性完成「校验名额 + 扣名额 + 记临时占用」。
+        //    只有返回 0 的请求才允许进 DB，其余（满/重复/处理中/缓存未就绪）在这里就被挡掉。
         long gate = tryGate(activityId, userId);
         if (gate == GATE_DUP) {
             throw new BizException(400, "请勿重复报名");
@@ -70,20 +77,22 @@ public class SignupServiceImpl extends ServiceImpl<SignupMapper, Signup> impleme
         if (gate == GATE_FULL) {
             throw new BizException(400, "名额已满，可加入候补");
         }
+        if (gate == GATE_PROCESSING) {
+            throw new BizException(400, "报名处理中，请稍候重试");
+        }
         if (gate == GATE_UNAVAILABLE) {
             throw new BizException(500, "服务器繁忙，请稍后重试");
         }
 
-        // ② 裁决：一条 SQL 同时判断和扣减，防超卖的唯一依据
-        if (activityMapper.takeQuota(activityId) == 0) {
-            quietSyncStock(activityId);
-            throw new BizException(400, "名额已满，可加入候补");
-        }
-
-        // ③ 明细：与 ② 同一事务，失败自动回滚名额，不需要手工补偿
+        // ② 落库：Redis 已经把名额扣掉了，这一段落库失败必须把名额还回去，否则就是「少卖」
         try {
-            // 只允许把「已取消(3)」的记录恢复成已报名；已经是 1 或 2 的行不能动，
-            // 否则「匹配行数=1」会被当成更新成功，重复提交就会二次扣名额。
+            // ②-1 仍以 DB 为唯一裁决：Redis 与 DB 漂移时（比如缓存被人改过）以 DB 为准
+            if (activityMapper.takeQuota(activityId) == 0) {
+                throw new BizException(400, "名额已满，可加入候补");
+            }
+
+            // ②-2 明细：只允许把「已取消(3)」的记录恢复成已报名；已经是 1 或 2 的行不能动，
+            //      否则「匹配行数=1」会被当成更新成功，重复提交就会二次扣名额。
             boolean updated = lambdaUpdate()
                     .eq(Signup::getActivityId, activityId)
                     .eq(Signup::getUserId, userId)
@@ -94,15 +103,48 @@ public class SignupServiceImpl extends ServiceImpl<SignupMapper, Signup> impleme
                 save(new Signup().setActivityId(activityId).setUserId(userId).setStatus(1));
             }
         } catch (DuplicateKeyException e) {
+            // 库里已经有这条报名记录：名额退回去，但人要在名单里（他确实是已报名状态）
+            releaseHold(activityId, userId, true);
             throw new BizException(400, "请勿重复报名");
+        } catch (RuntimeException e) {
+            releaseHold(activityId, userId, false);
+            throw e;
         }
 
-        // ④ 记账：失败只影响挡流精度，下次从 DB 重建
+        // ③ 提交成功后再清占用：占用只是幂等标记，清掉之后同一用户能再次提交（比如取消后重新报名）
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                clearHold(activityId, userId);
+            }
+        });
+    }
+
+    /**
+     * 落库失败：把 Lua 预扣的名额回退。宁可少卖，也不能出现「Redis 扣了、库里没有」的少名额。
+     *
+     * @param keepInUsers 为 true 时保留 users 集合成员——用于「库里已存在报名记录」的场景，
+     *                    那种情况下这个人本来就该在名单里，不能把他踢出去
+     */
+    private void releaseHold(Long activityId, Long userId, boolean keepInUsers) {
         try {
-            stringRedisTemplate.opsForValue().decrement(RedisKeys.signupStock(activityId));
-            stringRedisTemplate.opsForSet().add(RedisKeys.signupUsers(activityId), userId.toString());
+            stringRedisTemplate.opsForValue().increment(RedisKeys.signupStock(activityId));
+            if (!keepInUsers) {
+                stringRedisTemplate.opsForSet().remove(RedisKeys.signupUsers(activityId), userId.toString());
+            }
+            stringRedisTemplate.opsForZSet().remove(RedisKeys.signupHold(activityId), userId.toString());
         } catch (Exception e) {
-            log.warn("报名成功后回写 Redis 失败，activityId={}, userId={}", activityId, userId, e);
+            // 补偿也失败只能靠对账兜底：DB 是真相，下次重建会把 Redis 拉回来
+            log.error("报名失败后回退 Redis 预扣失败，activityId={}, userId={}", activityId, userId, e);
+        }
+    }
+
+    /** 提交成功：只清占用标记，名额已经扣掉了，不能再动 stock */
+    private void clearHold(Long activityId, Long userId) {
+        try {
+            stringRedisTemplate.opsForZSet().remove(RedisKeys.signupHold(activityId), userId.toString());
+        } catch (Exception e) {
+            log.warn("清除报名占用失败，activityId={}, userId={}", activityId, userId, e);
         }
     }
 
@@ -117,7 +159,8 @@ public class SignupServiceImpl extends ServiceImpl<SignupMapper, Signup> impleme
         }
         List<String> keys = List.of(
                 RedisKeys.signupStock(activityId),
-                RedisKeys.signupUsers(activityId));
+                RedisKeys.signupUsers(activityId),
+                RedisKeys.signupHold(activityId));
         try {
             long result = executeGate(keys, userId);
             if (result == GATE_UNAVAILABLE) {
@@ -133,7 +176,11 @@ public class SignupServiceImpl extends ServiceImpl<SignupMapper, Signup> impleme
     }
 
     private long executeGate(List<String> keys, Long userId) {
-        Long result = stringRedisTemplate.execute(signupScript, keys, userId.toString());
+        // 预扣需要两个额外参数：当前时间和占用有效期，Lua 里用它们判断占用是否过期
+        Long result = stringRedisTemplate.execute(signupScript, keys,
+                userId.toString(),
+                String.valueOf(System.currentTimeMillis()),
+                String.valueOf(HOLD_TTL_MS));
         return result == null ? GATE_UNAVAILABLE : result;
     }
 
@@ -148,17 +195,6 @@ public class SignupServiceImpl extends ServiceImpl<SignupMapper, Signup> impleme
         }
         stringRedisTemplate.opsForValue()
                 .set(RedisKeys.signupStock(activityId), String.valueOf(remain));
-    }
-
-    /**
-     * 校准失败不影响主流程。
-     */
-    private void quietSyncStock(Long activityId) {
-        try {
-            syncStockFromDb(activityId);
-        } catch (Exception e) {
-            log.warn("校准库存缓存失败，activityId={}", activityId, e);
-        }
     }
 
     @Override
