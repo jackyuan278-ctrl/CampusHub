@@ -9,8 +9,8 @@
 /* 助手页占满「页头以下」的视口高度，宽度和站内其它页对齐 */
 .app-main-full {
   display: flex;
-  height: calc(100vh - 76px);
-  height: calc(100dvh - 76px); /* 移动端地址栏收放时更准 */
+  height: calc(100vh - var(--header-h, 71px));
+  height: calc(100dvh - var(--header-h, 71px)); /* 移动端地址栏收放时更准 */
   padding: 20px 0 24px;
   box-sizing: border-box;
   /* 只禁「整页」滚动：左栏/顶栏/输入框固定，滚动交给内部的 .asst-scroll */
@@ -50,7 +50,7 @@
   /* 固定定位 + 铺满：页头以下的整块视口都是助手区，
      尺寸只由视口决定，聊天记录再多也顶不动它。 */
   position: fixed;
-  top: 76px;
+  top: var(--header-h, 71px);
   bottom: 0;
   left: 0;
   right: 0;
@@ -940,10 +940,20 @@
 @media (max-width: 900px) {
   .app-main-full { padding: 0; }
   /* 小屏：外壳贴边，只保留页头高度 */
-  .asst-shell { left: 0; right: 0; top: 76px; bottom: 0; border-radius: 0; border: 0; }
+  .asst-shell {
+    left: 0;
+    right: 0;
+    top: var(--header-h, 71px);
+    bottom: 0;
+    border-radius: 0;
+    border: 0;
+    /* 侧栏在这个断点变成 fixed 抽屉、脱离文档流；若仍保留 252px 的第一列，
+       主区会被挤成 252px 宽（右侧留一条空带）。这里改成单列。 */
+    grid-template-columns: minmax(0, 1fr);
+  }
   .asst-side {
     position: fixed;
-    top: 0;
+    top: var(--header-h, 71px);
     bottom: 0;
     left: 0;
     z-index: 40;
@@ -956,7 +966,8 @@
   .asst-shell.is-side-open .asst-backdrop {
     display: block;
     position: fixed;
-    inset: 0;
+    /* 抽屉和遮罩都从页头下沿开始：站点导航保持可见可点，视觉上也和抽屉对齐 */
+    inset: var(--header-h, 71px) 0 0 0;
     z-index: 30;
     background: rgba(18, 42, 35, .28);
   }
@@ -965,8 +976,8 @@
 }
 
 @media (max-width: 760px) {
-  .app-main-full { height: calc(100vh - 66px); }
-  .asst-shell { top: 66px; }
+  .app-main-full { height: calc(100dvh - var(--header-h, 71px)); }
+  .asst-shell { top: var(--header-h, 71px); }
   .asst-fab { right: 16px; bottom: 16px; width: 56px; height: 56px; }
   .asst-fab-mascot { height: 40px; width: 40px; }
   .asst-fab-bubble { display: none; }
@@ -982,4 +993,102 @@
   .asst-topbar { padding: 0 12px; }
   .asst-banner { width: calc(100% - 24px); }
   .asst-tool-tip { display: none; }
+}
+
+/* ---------------- 手机端细化（≤640） ---------------- */
+@media (max-width: 640px) {
+  /* 顶栏：主题切换是桌面玩物，手机上先把空间让给标题和操作按钮 */
+  .asst-themes { display: none; }
+  .asst-topbar {
+    height: 48px;
+    flex: 0 0 48px;
+    gap: 4px;
+    padding: 0 8px 0 4px;
+  }
+  .asst-topbar-title { gap: 6px; }
+  .asst-topbar-title strong { max-width: 44%; }
+  .asst-topbar-actions .el-button { margin-left: 0; padding: 4px 6px; }
+  .asst-typing { font-size: 10px; }
+
+  /* 欢迎区收紧，四张推荐卡在首屏能看全 */
+  /* 底部留白：滚到底时最后一张推荐卡不会贴着输入框 */
+  .asst-hero { padding: 18px 14px 14px; }
+  .asst-hero h1 { font-size: 26px; margin-bottom: 6px; }
+  .asst-hero p { font-size: 12.5px; }
+  .asst-suggests { margin-top: 16px; gap: 8px; }
+  .asst-suggest { padding: 10px 12px; }
+
+  /* 输入区：功能胶囊压小一档、两行放下；底部留出全面屏手势区 */
+  .asst-dock { padding: 0 10px calc(10px + env(safe-area-inset-bottom, 0px)); }
+  .asst-composer { padding: 8px 10px 7px; border-radius: 18px; }
+  .asst-chips { gap: 5px; padding: 0 0 7px; }
+  .asst-chip { padding: 5px 9px; font-size: 11.5px; gap: 4px; }
+  .asst-chip .el-icon { font-size: 12px; }
+  /* 16px 以下 iOS Safari 聚焦会自动放大整页 */
+  .asst-textarea { font-size: 16px; }
+  .asst-tool-tip { display: none; }
+}
+
+@media (max-width: 640px) {
+  /* 手机上顶栏右侧只留图标：标题占大头，两个按钮再带文字会挤到标题 */
+  .asst-btn-label { display: none; }
+  .asst-topbar-actions .el-button { padding: 6px 8px; }
+  .asst-topbar-actions .el-button .el-icon { margin-right: 0; }
+  /* 欢迎语自动均衡换行，避免最后一行只剩一两个字 */
+  .asst-hero p { font-size: 12px; text-wrap: balance; }
+}
+
+/* ==========================================================================
+   工具调用中间状态气泡（tool_call 事件可视化）
+   ========================================================================== */
+.asst-tool-calls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.asst-tool-call {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  width: fit-content;
+  background: var(--a-soft, #f4f7f8);
+  color: var(--a-text-soft, #52636b);
+  border: 1px solid var(--a-line, #e6eeea);
+  transition: background 0.2s, color 0.2s;
+}
+
+.asst-tool-call.is-running {
+  /* running 状态：蓝色调 + spinner */
+  background: rgba(34, 197, 94, 0.08);
+  color: var(--a-text, #1f2c35);
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+.asst-tool-call.is-done {
+  /* done 状态：灰一点、字体轻 */
+  opacity: 0.7;
+}
+
+/* 小 spinner（纯 CSS，不引外部依赖） */
+.asst-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--a-line, #e6eeea);
+  border-top-color: var(--a-muted, #8a9a9e);
+  border-radius: 50%;
+  animation: asst-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes asst-spin {
+  to { transform: rotate(360deg); }
+}
+
+.asst-tool-label {
+  font-weight: 500;
 }

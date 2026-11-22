@@ -14,11 +14,11 @@ export { AGENT_BASE }
 /**
  * 发起一次流式对话。
  * @param {{message:string, thread_id:string, mode?:string, attachments?:Array}} payload
- * @param {{token?:string, signal?:AbortSignal, onDelta?:(delta:string, full:string)=>void}} options
+ * @param {{token?:string, signal?:AbortSignal, onDelta?:(delta:string, full:string)=>void, onToolCall?:(name:string, args:object)=>void, onToolResult?:(name:string)=>void}} options
  * @returns {Promise<string>} 完整回复文本
  */
 export async function streamChat(payload, options = {}) {
-  const { token, signal, onDelta } = options
+  const { token, signal, onDelta, onToolCall, onToolResult } = options
   let response
   try {
     response = await fetch(`${AGENT_BASE}/assistant/chat`, {
@@ -73,13 +73,19 @@ export async function streamChat(payload, options = {}) {
         if (!data) continue
         if (data === '[DONE]') return full
         let delta = ''
+        let toolCall = null
+        let toolResult = null
         try {
           const parsed = JSON.parse(data)
           delta = parsed.delta ?? parsed.content ?? parsed.text ?? parsed.data?.content ?? ''
+          toolCall = parsed.tool_call ?? null
+          toolResult = parsed.tool_result ?? null
         } catch {
           // 后端直接推纯文本时也能兜住
           delta = data
         }
+        if (toolCall) onToolCall?.(toolCall.name || 'unknown', toolCall.arguments || {})
+        if (toolResult) onToolResult?.(toolResult.name || 'unknown')
         if (delta) {
           full += delta
           onDelta?.(delta, full)

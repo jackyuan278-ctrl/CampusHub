@@ -245,6 +245,16 @@ export const useAssistantStore = defineStore('assistant', () => {
         signal,
         onDelta: (delta) => {
           answer.content += delta
+        },
+        onToolCall: (name, args) => {
+          if (!answer.toolCalls) answer.toolCalls = []
+          answer.toolCalls.push({ name, args, status: 'running' })
+        },
+        onToolResult: (name) => {
+          if (answer.toolCalls) {
+            const last = answer.toolCalls.filter((tc) => tc.name === name && tc.status === 'running').pop()
+            if (last) last.status = 'done'
+          }
         }
       })
       if (!full && !answer.content) throw new Error('empty')

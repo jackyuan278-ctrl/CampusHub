@@ -26,6 +26,19 @@
       <p v-if="message.role === 'user'" class="asst-bubble">{{ message.content }}</p>
 
       <template v-else>
+        <!-- 工具调用中间状态气泡 -->
+        <div v-if="message.toolCalls?.length" class="asst-tool-calls">
+          <div
+            v-for="(tc, i) in message.toolCalls"
+            :key="`${tc.name}-${i}`"
+            class="asst-tool-call"
+            :class="`is-${tc.status}`"
+          >
+            <span v-if="tc.status === 'running'" class="asst-spinner" />
+            <span class="asst-tool-label">{{ toolLabel(tc.name) }}</span>
+          </div>
+        </div>
+
         <div v-if="message.content" class="asst-md" v-html="renderMarkdown(message.content)" />
         <div v-else-if="message.streaming" class="asst-dots"><span /><span /><span /></div>
         <p v-else class="asst-bubble asst-msg-empty">（没有返回内容）</p>
@@ -48,4 +61,17 @@ const props = defineProps({
 
 const auth = useAuthStore()
 const initial = computed(() => (auth.displayName || '我').slice(0, 1))
+
+/** 工具名 → 中文标签（没匹配上就直接显示原名） */
+const TOOL_LABELS = {
+  search_secondhand_items_tool: '查询二手商品',
+  search_campus_activities_tool: '查询校园活动',
+  campus_search_tool: '校园搜索',
+  web_search_tool: '联网搜索',
+  tavily_search: '联网搜索',
+  process_image_tool: '图片识别',
+}
+function toolLabel(name) {
+  return TOOL_LABELS[name] || name || '调用工具'
+}
 </script>
