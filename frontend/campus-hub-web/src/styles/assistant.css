@@ -568,6 +568,8 @@
   color: var(--a-text);
   font-size: 14px;
   line-height: 1.75;
+  /* 气泡先限制最大宽度再纵向换行，防止长内容横向撑爆 */
+  max-width: 100%;
   white-space: pre-wrap;
   word-break: break-word;
 }
