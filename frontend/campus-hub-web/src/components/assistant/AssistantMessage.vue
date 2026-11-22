@@ -64,12 +64,34 @@ const initial = computed(() => (auth.displayName || '我').slice(0, 1))
 
 /** 工具名 → 中文标签（没匹配上就直接显示原名） */
 const TOOL_LABELS = {
+  // —— 校园库（原有）——
   search_secondhand_items_tool: '查询二手商品',
+  get_secondhand_detail_tool: '查询商品详情',
+  search_campus_activities: '查询校园活动',
   search_campus_activities_tool: '查询校园活动',
   campus_search_tool: '校园搜索',
   web_search_tool: '联网搜索',
   tavily_search: '联网搜索',
   process_image_tool: '图片识别',
+  // —— 旅游规划 ——
+  get_weather: '查询天气预报',
+  search_flights: '查询航班',
+  search_hotels: '查询酒店',
+  search_travel_guide: '搜索旅游攻略',
+  // —— 股票行情 ——
+  get_stock_quote: '查询股票行情',
+  get_stock_financials: '查询股票财报',
+  get_stock_news: '查询股票新闻',
+  // —— 学术论文 ——
+  search_papers: '搜索学术论文',
+  get_paper_detail: '查看论文详情',
+  get_citation_graph: '查看引用关系',
+  // —— 商品比价 ——
+  compare_products: '商品比价',
+  get_product_price_history: '查询价格走势',
+  find_best_deal: '查找优惠促销',
+  // —— 本地知识库 ——
+  local_knowledge_query: '查询校园知识库',
 }
 function toolLabel(name) {
   return TOOL_LABELS[name] || name || '调用工具'

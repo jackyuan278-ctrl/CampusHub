@@ -70,7 +70,11 @@ export const SUGGESTIONS = [
   { icon: 'Goods', title: '找一台二手显示器', desc: '预算 500 以内，宿舍用', text: '帮我找一台二手显示器，预算 500 以内，宿舍用，最好 24 寸' },
   { icon: 'Calendar', title: '这周末有什么活动', desc: '想认识新朋友的那种', text: '这周末学校有什么活动？我想找能认识新朋友的那种' },
   { icon: 'Document', title: '帮我总结一份讲义', desc: '上传 PDF，我划重点', text: '我上传了一份讲义，帮我总结重点并列出考前要看的部分' },
-  { icon: 'ChatDotRound', title: '这道题怎么理解', desc: '把题目发我，一起拆', text: '帮我看一道题：为什么 Redis 的 Hash 比 String 更省内存？' }
+  { icon: 'ChatDotRound', title: '这道题怎么理解', desc: '把题目发我，一起拆', text: '帮我看一道题：为什么 Redis 的 Hash 比 String 更省内存？' },
+  { icon: 'TrendCharts', title: '查一下茅台最近行情', desc: '只读公开数据，不做投资建议', text: '帮我查一下贵州茅台（600519）最近的行情和财报' },
+  { icon: 'Compass', title: '周末去厦门玩三天', desc: '天气、航班、攻略帮我搞', text: '下周去厦门玩三天，帮我查天气、航班和攻略' },
+  { icon: 'Money', title: 'Sony WH-1000XM5 比价', desc: '京东/天猫/拼多多哪家划算', text: '帮我对比 Sony WH-1000XM5 在京东、天猫、拼多多的价格' },
+  { icon: 'Reading', title: '帮我找注意力机制的论文', desc: '给我 3 篇最经典的', text: '帮我搜索 attention mechanism 相关的经典论文，列 3 篇最重要的' },
 ]
 
 /** 按扩展名/类型挑一个图标，避免附件列表里出现清一色方块 */
