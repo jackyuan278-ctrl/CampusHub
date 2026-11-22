@@ -32,7 +32,7 @@
             v-for="(tc, i) in message.toolCalls"
             :key="`${tc.name}-${i}`"
             class="asst-tool-call"
-            :class="`is-${tc.status}`"
+            :class="[`is-${tc.status}`, toolSkillClass(tc.name)]"
           >
             <span v-if="tc.status === 'running'" class="asst-spinner" />
             <span class="asst-tool-label">{{ toolLabel(tc.name) }}</span>
@@ -95,5 +95,31 @@ const TOOL_LABELS = {
 }
 function toolLabel(name) {
   return TOOL_LABELS[name] || name || '调用工具'
+}
+
+/** 工具名 → skill 类别 class（给气泡染色用） */
+const TOOL_SKILL_CLASS = {
+  // 天蓝 —— 旅游规划
+  get_weather: 'skill-travel',
+  search_flights: 'skill-travel',
+  search_hotels: 'skill-travel',
+  search_travel_guide: 'skill-travel',
+  // 红棕 —— 股票行情
+  get_stock_quote: 'skill-stock',
+  get_stock_financials: 'skill-stock',
+  get_stock_news: 'skill-stock',
+  // 琥珀 —— 学术论文
+  search_papers: 'skill-literature',
+  get_paper_detail: 'skill-literature',
+  get_citation_graph: 'skill-literature',
+  // 紫 —— 商品比价
+  compare_products: 'skill-product',
+  get_product_price_history: 'skill-product',
+  find_best_deal: 'skill-product',
+  // 深蓝 —— 本地知识库
+  local_knowledge_query: 'skill-local',
+}
+function toolSkillClass(name) {
+  return TOOL_SKILL_CLASS[name] || ''
 }
 </script>

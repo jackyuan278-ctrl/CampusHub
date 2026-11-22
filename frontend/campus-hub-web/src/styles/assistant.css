@@ -1076,6 +1076,68 @@
   opacity: 0.7;
 }
 
+/* ---- Skill 类别颜色（柔和熏染，不是大色块） ---- */
+
+/* 🟢 天蓝 —— 旅游规划 */
+.asst-tool-call.skill-travel {
+  background: rgba(14, 165, 233, 0.08);
+  border-color: rgba(14, 165, 233, 0.3);
+  color: #0369a1;
+}
+.asst-tool-call.skill-travel.is-running {
+  background: rgba(14, 165, 233, 0.14);
+  border-color: rgba(14, 165, 233, 0.45);
+  color: #0c4a6e;
+}
+
+/* 🔴 红棕 —— 股票行情（股市色但柔和） */
+.asst-tool-call.skill-stock {
+  background: rgba(220, 38, 38, 0.07);
+  border-color: rgba(220, 38, 38, 0.28);
+  color: #991b1b;
+}
+.asst-tool-call.skill-stock.is-running {
+  background: rgba(220, 38, 38, 0.12);
+  border-color: rgba(220, 38, 38, 0.4);
+  color: #7f1d1d;
+}
+
+/* 🟠 琥珀 —— 学术论文 */
+.asst-tool-call.skill-literature {
+  background: rgba(217, 119, 6, 0.07);
+  border-color: rgba(217, 119, 6, 0.28);
+  color: #92400e;
+}
+.asst-tool-call.skill-literature.is-running {
+  background: rgba(217, 119, 6, 0.12);
+  border-color: rgba(217, 119, 6, 0.4);
+  color: #78350f;
+}
+
+/* 🟣 紫 —— 商品比价 */
+.asst-tool-call.skill-product {
+  background: rgba(124, 58, 237, 0.07);
+  border-color: rgba(124, 58, 237, 0.28);
+  color: #6d28d9;
+}
+.asst-tool-call.skill-product.is-running {
+  background: rgba(124, 58, 237, 0.12);
+  border-color: rgba(124, 58, 237, 0.4);
+  color: #5b21b6;
+}
+
+/* 🔵 深蓝 —— 本地知识库 */
+.asst-tool-call.skill-local {
+  background: rgba(37, 99, 235, 0.07);
+  border-color: rgba(37, 99, 235, 0.28);
+  color: #1d4ed8;
+}
+.asst-tool-call.skill-local.is-running {
+  background: rgba(37, 99, 235, 0.12);
+  border-color: rgba(37, 99, 235, 0.4);
+  color: #1e40af;
+}
+
 /* 小 spinner（纯 CSS，不引外部依赖） */
 .asst-spinner {
   width: 12px;
