@@ -36,10 +36,10 @@
         </div>
         <div class="asst-topbar-actions">
           <el-button v-if="store.messages.length" text size="small" @click="clearActive">
-            <el-icon><Delete /></el-icon>清空
+            <el-icon><Delete /></el-icon><span class="asst-btn-label">清空</span>
           </el-button>
           <el-button text size="small" @click="createThread">
-            <el-icon><Plus /></el-icon>新对话
+            <el-icon><Plus /></el-icon><span class="asst-btn-label">新对话</span>
           </el-button>
         </div>
       </header>

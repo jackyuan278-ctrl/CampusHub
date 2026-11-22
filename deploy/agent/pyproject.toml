@@ -1,0 +1,43 @@
+[project]
+name = "campus-agent"
+version = "0.1.0"
+description = "CampusHub 智能助手：活动/社区 RAG + 二手商品工具调用"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.162.0",
+    "uvicorn[standard]>=0.54.0",
+    "python-dotenv>=1.2.4",
+    "pymysql>=1.1,<1.2",
+    "sqlalchemy[asyncio]>=2.1.6",
+    # Agent 编排（框架只装依赖，编排逻辑自己写）
+    "langgraph>=0.2",
+    "aiomysql>=0.3.2",
+    "openai>=3.42.1",
+    "langgraph-checkpoint-mysql[aiomysql]>=3.0.0",
+    "langchain-openai>=1.7.3",
+    "numpy>=2.5.4",
+    "langchain>=1.4.8",
+    "tavily-python>=0.8.5",
+    "pyjwt>=2.15.1",
+    "alibabacloud-oss-v2>=1.4.1",
+    "python-multipart>=0.0.33",
+    "aio-pika>=10.2.2",
+    "pymilvus[milvus-lite]>=3.0.2",
+    "milvus-lite>=3.2.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+    "httpx>=0.28.1",
+]
+
+# 国内源（与 PythonProject 一致）
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# 让 pytest 能 import 到 app 包（tests/ 不是包，默认不会把项目根加进 sys.path）
+pythonpath = ["."]

@@ -3,6 +3,8 @@
     <span class="pager-total">共 {{ total }} 条</span>
     <el-pagination
       background
+      small
+      :pager-count="5"
       layout="prev, pager, next"
       :current-page="Number(page)"
       :page-size="Number(pageSize)"

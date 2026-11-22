@@ -5,46 +5,47 @@
  */
 export const ASSISTANT_MODES = [
   {
-    key: 'casual',
-    label: '随便聊聊',
-    icon: 'ChatLineRound',
-    hint: '什么都能聊，需要时替你上网查',
-    placeholder: '想聊什么都行，比如「最近有什么好看的电影」'
-  },
-  {
-    key: 'chat',
-    label: '智能问答',
-    icon: 'ChatDotRound',
-    hint: '校园生活里的问题都可以问',
-    placeholder: '随便问点什么，比如「图书馆期中考期间开放到几点」'
-  },
-  {
-    key: 'market',
-    label: '二手估价',
-    icon: 'Goods',
-    hint: '描述成色，给你一个参考价',
-    placeholder: '描述一下你的闲置物品，比如「罗技 G304，9 成新，有包装」'
-  },
-  {
-    key: 'activity',
-    label: '活动推荐',
-    icon: 'Calendar',
-    hint: '按兴趣和时间挑活动',
-    placeholder: '说说你的兴趣和时间，比如「周末下午，想认识新朋友」'
-  },
-  {
-    key: 'doc',
-    label: '资料解读',
-    icon: 'Document',
-    hint: '上传 PDF / 图片，划重点',
-    placeholder: '上传讲义或截图，然后告诉我你想看哪部分'
+    key: 'campus',
+    label: '校园问题',
+    icon: 'School',
+    hint: '二手、活动、图书馆、教务处 FAQ 一站式',
+    placeholder: '问问校园生活，比如「图书馆期中考开到几点」「这周末有什么活动」'
   },
   {
     key: 'travel',
     label: '旅游规划',
     icon: 'Compass',
-    hint: '天气、航班、酒店、攻略一键搞定',
+    hint: '天气、航班、酒店、攻略一键搞',
     placeholder: '说走就走，比如「下周去厦门玩三天，预算 3000」'
+  },
+  {
+    key: 'research',
+    label: '学术调研',
+    icon: 'Reading',
+    hint: '语义搜论文 + 引用图 + 脉络梳理',
+    placeholder: '帮我搜「transformer attention mechanism」的经典论文'
+  },
+  {
+    key: 'finance',
+    label: '行情资讯',
+    icon: 'TrendCharts',
+    hint: '个股行情、财报、相关新闻',
+    placeholder: '查一下贵州茅台 600519 最近行情和财报',
+    riskWarning: true
+  },
+  {
+    key: 'chat',
+    label: '智能问答',
+    icon: 'ChatDotRound',
+    hint: '跨场景兜底，代码/面试/英语/健身/周报都行',
+    placeholder: '随便问点什么，比如「为什么 Redis 的 Hash 比 String 省内存」'
+  },
+  {
+    key: 'casual',
+    label: '随便聊聊',
+    icon: 'ChatLineRound',
+    hint: '什么都能聊，需要时替你上网查',
+    placeholder: '最近有什么好看的科幻电影？'
   }
 ]
 

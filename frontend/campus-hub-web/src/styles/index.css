@@ -12,6 +12,9 @@
   --line: #e6eeea;
   --paper: #ffffff;
   --canvas: #f8fbfa;
+  /* 站点页头实际高度：.topbar-inner 70px + 1px 下边框。
+     助手页、吸顶元素都引用它，避免各处写死 66/76 导致错位。 */
+  --header-h: 71px;
   --shadow: 0 18px 44px rgba(34, 81, 68, .07);
   /* Element Plus 主题对齐品牌薄荷绿（按钮/复选框/分页/步骤条等一并生效） */
   --el-color-primary: #16a878;
@@ -579,3 +582,168 @@ a { color: inherit; text-decoration: none; }
   .activity-cover-banner img { max-height: 190px; }
 }
 
+
+/* ===== 移动端补丁（只处理已发现的三个缺口，不改动上面的栅格规则）===== */
+@media (max-width: 760px) {
+  /* 1) Element Plus 的 el-dialog 按 px 写死宽度（520~640px），手机上会撑出屏幕。
+        这里统一收成「屏幕宽 - 24px」，并让内容区可滚动，避免长表单把按钮顶出去。 */
+  .el-dialog {
+    --el-dialog-width: calc(100vw - 24px);
+    width: calc(100vw - 24px) !important;
+    max-height: 88vh;
+    margin: 12px auto !important;
+    display: flex;
+    flex-direction: column;
+  }
+  .el-dialog__header { flex: 0 0 auto; padding: 14px 16px 8px; }
+  .el-dialog__body { flex: 1 1 auto; overflow-y: auto; padding: 8px 16px 12px; }
+  .el-dialog__footer { flex: 0 0 auto; padding: 8px 16px 14px; }
+
+  /* 2) iOS Safari 在 input 字号 < 16px 时聚焦会自动放大整页。
+        输入类控件统一抬到 16px，避免点一下表单页面就缩放。 */
+  .el-input__inner,
+  .el-textarea__inner,
+  .el-select__placeholder,
+  .el-input-number input,
+  .search-shell input,
+  .community-search input {
+    font-size: 16px !important;
+  }
+
+  /* 3) 触摸目标：桌面 32px 的按钮在手指上偏小，主操作抬到 40px。 */
+  .el-button { min-height: 38px; }
+  .el-button--small { min-height: 32px; }
+  .el-button.is-circle { min-width: 38px; }
+
+  /* 日期选择面板固定 322px，窄屏会贴边；限制最大宽度避免横向溢出。 */
+  .el-picker__popper, .el-popper.is-pure { max-width: calc(100vw - 16px); }
+}
+
+/* ===== 移动端补丁 2：筛选栏与搜索框 ===== */
+@media (max-width: 760px) {
+  /* 活动页：五个状态标签 + 搜索框原本挤在一行，标签被压到只剩一个字宽（竖排）。
+     改成上下两段：标签横向可滑，搜索框独占一行。 */
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .community-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  /* 标签按内容宽度自适应：一行放得下就均分，放不下就换行，不做横向滚动 */
+  .filter-tabs,
+  .category-tabs,
+  .community-tabs {
+    flex-wrap: wrap;
+    overflow: visible;
+    gap: 6px;
+    padding-bottom: 0;
+  }
+  .filter-tabs button,
+  .category-tabs button,
+  .community-tabs button {
+    /* 0 0 auto：按文字宽度占位，不拉伸。
+       用 flex:1 时社区页两个标签会各占半屏、二手页最后一个标签会撑满整行 */
+    flex: 0 0 auto;
+    white-space: nowrap;
+    text-align: center;
+    padding: 8px 10px;
+  }
+
+  /* 搜索框：桌面端 min-width 220px 会把同一行的标签挤扁 */
+  .search-shell,
+  .search-shell.compact,
+  .community-search {
+    width: 100%;
+    min-width: 0;
+  }
+  .filter-count { white-space: nowrap; }
+}
+
+/* 首页大标题在 390 屏上偏大，压一档，二行标题不至于顶满屏幕 */
+@media (max-width: 480px) {
+  .hero-copy-block h1 { font-size: 34px; line-height: 1.16; }
+  .home-hero { min-height: auto; }
+}
+
+/* ===== 移动端补丁 3：弹窗遮罩不盖住底部导航 ===== */
+@media (max-width: 900px) {
+  /* Element Plus 的遮罩是 fixed inset:0，会把底部导航一起盖住。
+     这里把遮罩下沿收到导航上沿——导航常驻可点，弹窗也不会被导航压住。
+     不使用提高 z-index 的办法，避免盖住下拉框、日期面板这类 popping 浮层。 */
+  body.has-tabbar .el-overlay {
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    /* Element Plus 给遮罩写了 height:100%，top:0 + height 会让 bottom 失效，
+       必须把高度交还给「top + bottom」来算 */
+    height: auto;
+  }
+  /* 遮罩变矮后，弹窗高度同步收一档，保证在剩余区域里完整可见 */
+  body.has-tabbar .el-dialog {
+    max-height: 80vh;
+  }
+}
+
+/* ===== 移动端补丁 4：商品卡片底部与分页器 ===== */
+@media (max-width: 760px) {
+  /* 两列商品卡里，「¥1055.89 + 加入购物车」一行放不下：实测按钮右侧超出 56px 被裁。
+     改成上下两行，按钮占满整行宽度。 */
+  .item-bottom {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .item-bottom strong {
+    font-size: 17px;
+  }
+  .item-bottom .el-button {
+    width: 100%;
+    padding: 7px 8px;
+    font-size: 12px;
+  }
+
+  /* 分页器默认 7 个页码，实测总宽 392px 超出 390 屏幕，是页面能横向滑动的元凶 */
+  .pager-bar {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+  .pager-bar .el-pagination {
+    --el-pagination-button-width: 28px;
+    --el-pagination-button-height: 28px;
+    justify-content: center;
+  }
+  .pager-bar .el-pager li {
+    min-width: 28px;
+    margin: 0 1px;
+    font-size: 12px;
+  }
+  .pager-bar .btn-prev,
+  .pager-bar .btn-next {
+    min-width: 28px;
+  }
+}
+
+/* ===== 移动端补丁 5：降低滚动开销 ===== */
+@media (max-width: 900px) {
+  /* 顶部导航是 sticky + backdrop-filter:blur(18px)，滚动时每帧都要重算背景模糊。
+     移动端换成实色背景，视觉几乎无差别，掉帧明显改善。 */
+  .app-header,
+  .topbar,
+  .floating-note {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  /* 页头实色，避免下半截内容从半透明背景里透出来 */
+  .app-header,
+  .topbar {
+    background: #fff;
+  }
+  /* 悬浮球的呼吸光晕是无限循环动画，常驻后台占 GPU；移动端停掉 */
+  .asst-fab-halo {
+    animation: none;
+  }
+}
