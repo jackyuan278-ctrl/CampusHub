@@ -38,6 +38,13 @@ export const ASSISTANT_MODES = [
     icon: 'Document',
     hint: '上传 PDF / 图片，划重点',
     placeholder: '上传讲义或截图，然后告诉我你想看哪部分'
+  },
+  {
+    key: 'travel',
+    label: '旅游规划',
+    icon: 'Compass',
+    hint: '天气、航班、酒店、攻略一键搞定',
+    placeholder: '说走就走，比如「下周去厦门玩三天，预算 3000」'
   }
 ]
 
